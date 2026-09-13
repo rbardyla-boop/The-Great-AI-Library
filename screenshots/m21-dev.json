@@ -1,0 +1,36 @@
+{
+  "url": "http://127.0.0.1:8080/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "The Stacks · The Great AI Library",
+      "hasCanvas": false,
+      "bodyTextLen": 359,
+      "bodyTextHash": "583d61528441e9db53dc0ed6ea5c4089e4355f463d2841d8afa18d30fd6abca0",
+      "bodyTextPrefix": "THE GREAT AI LIBRARY Reasoning may be private. Power cannot be. ",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/m21-dev.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "The Stacks · The Great AI Library",
+      "hasCanvas": false,
+      "bodyTextLen": 365,
+      "bodyTextHash": "adefd8e8da38b550771a1c25a9298c154126995d2b33683d3a31603d73f77993",
+      "bodyTextPrefix": "THE GREAT AI LIBRARY Reasoning may be private. Power cannot be. ",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/m21-dev-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/m21-dev.json"
+}

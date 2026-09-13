@@ -6,11 +6,10 @@ import { Button } from "@/components/ui/button";
 import { HashStamp } from "@/components/library/hash-stamp";
 import { askValuesModel } from "@/lib/motive/ask-values";
 import { DILEMMAS } from "@/lib/motive/dilemmas";
-import { convene, recordDecision, replayDecision } from "@/lib/motive/session";
+import { convene, type Convened } from "@/lib/motive/session";
 import { useChamber } from "@/lib/motive/store";
 import { pageHead } from "@/lib/seo";
-import type { Convened } from "@/lib/motive/session";
-import type { MotiveDecision, Recommendation } from "@/lib/values/types";
+import type { Recommendation } from "@/lib/values/types";
 import { cn } from "@/lib/cn";
 
 export const Route = createFileRoute("/chamber")({
@@ -34,23 +33,26 @@ function ChamberPage() {
   const [session, setSession] = useState<Convened | null>(null);
   const [busy, setBusy] = useState(false);
   const [replayed, setReplayed] = useState<string | null>(null);
+  const [expBusy, setExpBusy] = useState(false);
   const commitSeat = useChamber((s) => s.commitSeat);
   const decisions = useChamber((s) => s.decisions);
+  const builderVersion = useChamber((s) => s.builderVersion) ?? "1.3.0";
+  const runExperiment = useChamber((s) => s.runExperiment);
+  const lastReport = useChamber((s) => s.lastReport) ?? null;
 
   async function run(id: string) {
     setBusy(true);
     setReplayed(null);
     setActive(id);
-    const next = await convene(DILEMMAS.find((d) => d.id === id)!);
+    const next = await convene(DILEMMAS.find((d) => d.id === id)!, builderVersion);
     setSession(next);
     setBusy(false);
   }
 
   useEffect(() => {
     void run(active);
-    // first convene only
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [builderVersion]);
 
   const dilemma = DILEMMAS.find((d) => d.id === active)!;
 
@@ -62,10 +64,77 @@ function ChamberPage() {
           Same mind. Different law.
         </h1>
         <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted">
-          Six roles, one checkpoint. VALUES recommend. The Hive membrane authorizes — or does not.
-          An agent may change its mind. It may not silently change the constitution.
+          Six roles, one checkpoint. VALUES recommend under cost. The Hive membrane authorizes — or
+          does not. An agent may change its mind. It may not silently change the constitution.
         </p>
       </header>
+
+      <section className="rounded-lg bg-surface p-5 shadow-[0_0_0_1px_rgba(255,255,255,0.08)]">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="font-display text-xl">VALUES under cost</p>
+            <p className="mt-1 max-w-xl text-sm text-muted">
+              Run all five dilemmas. Identical base, six VALUES. Cost is wasted privilege when a
+              role asks the membrane for a forbidden effect. Builder is currently{" "}
+              <span className="text-fg">{builderVersion}</span>.
+            </p>
+          </div>
+          <Button
+            variant="secondary"
+            disabled={expBusy}
+            onClick={async () => {
+              setExpBusy(true);
+              await runExperiment();
+              setExpBusy(false);
+            }}
+          >
+            {expBusy ? "Running…" : "Run MOTIVE-0"}
+          </Button>
+        </div>
+        {lastReport ? (
+          <div className="mt-5 space-y-4">
+            <p className="font-mono text-[11px] text-faint">
+              {lastReport.model} · {lastReport.checkpoint} · evidence{" "}
+              <HashStamp hash={lastReport.evidenceRoot} /> · wasted-privilege{" "}
+              {lastReport.totalWastedPrivilege} · costly {lastReport.costlyCount}/
+              {lastReport.dilemmaCount}
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[640px] text-left font-mono text-[11px]">
+                <thead className="text-faint">
+                  <tr>
+                    <th className="pb-2 pr-3 font-medium">Dilemma</th>
+                    {lastReport.dilemmas[0]?.seats.map((s) => (
+                      <th key={s.role} className="pb-2 pr-3 font-medium capitalize">
+                        {s.role}
+                      </th>
+                    ))}
+                    <th className="pb-2 font-medium">Cost</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lastReport.dilemmas.map((d) => (
+                    <tr key={d.id} className="border-t border-border">
+                      <td className="py-2 pr-3 text-muted">{d.title}</td>
+                      {d.seats.map((s) => (
+                        <td key={s.role} className="py-2 pr-3 text-fg">
+                          {s.recommendation}
+                          {s.wastedPrivilege > 0 ? (
+                            <span className="text-warn"> · {s.wastedPrivilege}</span>
+                          ) : null}
+                        </td>
+                      ))}
+                      <td className={d.costly ? "py-2 text-warn" : "py-2 text-ok"}>
+                        {d.costly ? `costly ${d.wastedPrivilege}` : "cheap"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : null}
+      </section>
 
       <section className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
         {DILEMMAS.map((d) => (
@@ -98,6 +167,13 @@ function ChamberPage() {
             <dd className="mt-1 text-ok">{dilemma.legitimatePath.label}</dd>
           </div>
         </dl>
+        {session ? (
+          <p className="mt-4 font-mono text-[11px] text-faint">
+            Majority {session.majority} · {session.unique} recommendations · wasted-privilege{" "}
+            {session.wastedPrivilege}
+            {session.costly ? " · costly conflict" : ""}
+          </p>
+        ) : null}
       </section>
 
       {busy ? (
@@ -126,7 +202,11 @@ function ChamberPage() {
               </p>
               <p className="mt-3 text-sm leading-relaxed text-muted">{seat.judgment.justification}</p>
               <p className="mt-2 text-xs text-faint">{seat.membrane.reason}</p>
-              <p className="mt-3 font-mono text-[11px] text-faint">authorized: false</p>
+              <p className="mt-3 font-mono text-[11px] text-faint">
+                authorized: false · temptation {seat.cost.temptation} · wasted-privilege{" "}
+                {seat.cost.wastedPrivilege}
+                {seat.cost.dissent ? " · dissent" : ""}
+              </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 <Button
                   size="sm"
@@ -169,8 +249,16 @@ function ChamberPage() {
           <ol className="mt-4 space-y-3">
             {decisions.slice(0, 8).map((d) => (
               <li key={d.id} className="font-mono text-[12px] text-muted">
-                {d.id} · {d.dilemmaId} · {d.judgment.role} · {d.judgment.recommendation} · membrane{" "}
-                {d.membrane.allow ? "allow" : "deny"} · <HashStamp hash={d.valuesHash} />
+                {d.id} · {d.model} · {d.judgment.role}@{d.valuesVersion} · {d.dilemmaId} ·{" "}
+                {d.judgment.recommendation} · membrane {d.membrane.allow ? "allow" : "deny"} ·
+                evidence <HashStamp hash={d.evidenceRoot} /> · VALUES{" "}
+                <HashStamp hash={d.valuesHash} />
+                {d.ledgerReceipt ? (
+                  <>
+                    {" "}
+                    · ledger <HashStamp hash={d.ledgerReceipt} />
+                  </>
+                ) : null}
               </li>
             ))}
           </ol>
@@ -187,23 +275,26 @@ function ReplayButton({
   dilemmaId: string;
   onDone: (text: string) => void;
 }) {
+  const replaySeat = useChamber((s) => s.replaySeat);
+  const [busy, setBusy] = useState(false);
   return (
     <Button
       size="sm"
       variant="ghost"
+      disabled={busy}
       onClick={async () => {
-        const dilemma = DILEMMAS.find((d) => d.id === dilemmaId)!;
-        const { evaluateValues } = await import("@/lib/values/evaluate");
-        const { profileByRole } = await import("@/lib/values/profiles");
-        const v13 = await profileByRole("builder", "1.3.0");
-        const decision: MotiveDecision = recordDecision(dilemma, evaluateValues(v13, dilemma), 0);
-        const { replayed } = await replayDecision(decision, "values://open-hive/builder/1.4.0");
-        onDone(
-          `Builder 1.3.0 → ${decision.judgment.recommendation}. Replay under 1.4.0 → ${replayed.recommendation}. The original receipt is unchanged. Only the judging constitution moved — through epoch, not silently.`,
-        );
+        setBusy(true);
+        try {
+          const result = await replaySeat(dilemmaId, "values://open-hive/builder/1.4.0");
+          onDone(
+            `Builder 1.3.0 → ${result.original.judgment.recommendation}. Replay under 1.4.0 → ${result.replayed.recommendation}. Original JUDGE ${result.original.ledgerReceipt ?? result.original.id} is unchanged. REPLAY ${result.ledgerReceipt}. Only the judging constitution moved — through epoch, not silently.`,
+          );
+        } finally {
+          setBusy(false);
+        }
       }}
     >
-      Replay under 1.4.0
+      {busy ? "Replaying…" : "Replay under 1.4.0"}
     </Button>
   );
 }

@@ -7,6 +7,7 @@ import { bootKernel, clearKernelStore, saveKernel } from "@/lib/kernel/persist";
 import { seedMercury } from "@/lib/kernel/seed";
 import { signLibrarian } from "@/lib/kernel/librarians";
 import { utf8 } from "@/lib/kernel/crypto";
+import { ensureValuesInstalled } from "@/lib/values/registry";
 import type {
   AccessionJob,
   Claim,
@@ -64,6 +65,11 @@ async function persistNow() {
   await saveKernel(kernel);
 }
 
+export function refreshLibrary() {
+  useLibrary.setState((s) => ({ ...s, tick: s.tick + 1 }));
+  void persistNow();
+}
+
 export const useLibrary = create<LibraryState>()(
   persist(
     (set, get) => ({
@@ -79,6 +85,8 @@ export const useLibrary = create<LibraryState>()(
       boot: async () => {
         if (get().ready) return;
         await bootKernel(kernel);
+        await ensureValuesInstalled(kernel);
+        await persistNow();
         set({ ...snap(get()), ready: true });
       },
       decideDesk: (id, decision) => {
@@ -94,7 +102,20 @@ export const useLibrary = create<LibraryState>()(
         if (!lib) return { ok: false, reason: "Unknown librarian" };
         const signed = await signLibrarian(lib);
         const previous = kernel.catalog.data.installed.find((i) => i.id === id);
-        const result = await kernel.installSigned(signed, previous ? { ...signed, librarian: { ...lib, version: previous.version }, manifest: { ...signed.manifest, version: previous.version, permissions: previous.permissions } } : null);
+        const result = await kernel.installSigned(
+          signed,
+          previous
+            ? {
+                ...signed,
+                librarian: { ...lib, version: previous.version },
+                manifest: {
+                  ...signed.manifest,
+                  version: previous.version,
+                  permissions: previous.permissions,
+                },
+              }
+            : null,
+        );
         if (!result.ok) {
           set({ ...snap(get()), blockedInstall: [...new Set([...get().blockedInstall, id])] });
           void persistNow();
@@ -145,6 +166,7 @@ export const useLibrary = create<LibraryState>()(
         kernel.jobs.clear();
         await clearKernelStore();
         await seedMercury(kernel);
+        await ensureValuesInstalled(kernel);
         await persistNow();
         set({
           ...snap(get()),

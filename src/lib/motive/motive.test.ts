@@ -31,6 +31,8 @@ describe("MOTIVE-0", () => {
     const guardian = convened.seats.find((s) => s.profile.role === "guardian")!;
     assert.equal(builder.judgment.recommendation, "request-exception");
     assert.equal(guardian.judgment.recommendation, "abstain");
+    assert.equal(convened.costly, true);
+    assert.equal(builder.cost.wastedPrivilege, 9);
   });
 
   it("MEMBRANE OVERRULES", async () => {
@@ -45,7 +47,11 @@ describe("MOTIVE-0", () => {
   it("REPLAY", async () => {
     const v13 = await profileByRole("builder", "1.3.0");
     const dilemma = dilemmaById("reward-evidence");
-    const original = recordDecision(dilemma, evaluateValues(v13, dilemma), 1, () => "2026-09-13T00:00:00Z");
+    const original = recordDecision(dilemma, evaluateValues(v13, dilemma), 1, {
+      evidenceRoot: "test-root",
+      temptation: v13.preferences.completion,
+      now: () => "2026-09-13T00:00:00Z",
+    });
     const v14 = await profileByUri("values://open-hive/builder/1.4.0");
     assert.ok(v14);
     const { replayed, sameRecommendation } = await replayDecision(original, v14.uri);
@@ -53,6 +59,9 @@ describe("MOTIVE-0", () => {
     assert.equal(replayed.recommendation, "act-legitimate");
     assert.equal(sameRecommendation, false);
     assert.notEqual(original.valuesHash, replayed.valuesHash);
+    assert.equal(original.model, "gal-values-eval/1.0");
+    assert.equal(original.valuesVersion, "1.3.0");
+    assert.equal(original.evidenceRoot, "test-root");
   });
 
   it("SILENT REWRITE", () => {

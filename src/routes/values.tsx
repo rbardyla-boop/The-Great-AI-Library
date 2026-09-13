@@ -3,6 +3,9 @@ import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { HashStamp } from "@/components/library/hash-stamp";
+import { objectPath } from "@/lib/kernel/crypto";
+import { kernel, useLibrary } from "@/lib/library/store";
+import { valuesCanonical } from "@/lib/values/object";
 import { allProfiles } from "@/lib/values/profiles";
 import { CONSTITUTIONAL_VALUES } from "@/lib/values/constitution";
 import { useChamber } from "@/lib/motive/store";
@@ -25,6 +28,9 @@ function ValuesPage() {
   const propose = useChamber((s) => s.propose);
   const proposals = useChamber((s) => s.proposals);
   const accept = useChamber((s) => s.acceptProposal);
+  const builderVersion = useChamber((s) => s.builderVersion);
+  const tick = useLibrary((s) => s.tick);
+  const ready = useLibrary((s) => s.ready);
 
   useEffect(() => {
     void allProfiles().then(setProfiles);
@@ -43,8 +49,12 @@ function ValuesPage() {
           Judgment, not authority.
         </h1>
         <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted">
-          Verifiable Agent-Level Utility & Epistemic Standards. Constitutional values cannot
-          be traded. Role emphasis can. VALUES never grant a privilege.
+          Verifiable Agent-Level Utility & Epistemic Standards. Each profile is a content-addressed
+          object. Constitutional values cannot be traded. Role emphasis can. VALUES never grant a
+          privilege.
+        </p>
+        <p className="mt-2 font-mono text-[11px] text-faint">
+          Installed builder {builderVersion}
         </p>
       </header>
 
@@ -72,10 +82,12 @@ function ValuesPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="font-display text-2xl">{p.name}</h3>
                 <Badge>{p.version}</Badge>
+                <CasBadge hash={p.hash} ready={ready} tick={tick} />
               </div>
               <p className="mt-1 break-all font-mono text-[11px] text-faint">
                 {p.uri} · <HashStamp hash={p.hash} />
               </p>
+              <p className="mt-1 break-all font-mono text-[11px] text-faint">{objectPath(p.hash)}</p>
               <p className="mt-3 text-sm leading-relaxed text-muted">{p.emphasis}</p>
               <dl className="mt-4 grid grid-cols-2 gap-2 font-mono text-[11px] text-muted">
                 {Object.entries(p.preferences).map(([k, w]) => (
@@ -85,6 +97,14 @@ function ValuesPage() {
                   </div>
                 ))}
               </dl>
+              <details className="mt-4">
+                <summary className="cursor-pointer font-mono text-[11px] text-faint">
+                  Inspect object
+                </summary>
+                <pre className="mt-2 overflow-x-auto whitespace-pre-wrap font-mono text-[11px] text-muted">
+                  {valuesCanonical(p)}
+                </pre>
+              </details>
             </article>
           ))}
         </div>
@@ -95,16 +115,18 @@ function ValuesPage() {
           <p className="font-display text-xl">Epoch amendment — Builder 1.3 → 1.4</p>
           <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted">
             Completion 9 → 6. Downside 3 → 7. The 1.3 hash stays on existing receipts. Replay
-            uses 1.4 without rewriting history.
+            uses 1.4 without rewriting history. Cost of request-exception falls with completion.
           </p>
-          <p className="mt-2 font-mono text-[11px] text-faint">
-            proposed {nextBuilder.uri} · <HashStamp hash={nextBuilder.hash} />
+          <p className="mt-2 break-all font-mono text-[11px] text-faint">
+            proposed {nextBuilder.uri} · <HashStamp hash={nextBuilder.hash} /> ·{" "}
+            {objectPath(nextBuilder.hash)} ·{" "}
+            <CasBadge hash={nextBuilder.hash} ready={ready} tick={tick} />
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             <Button
               variant="secondary"
-              onClick={() => {
-                const p = propose(
+              onClick={async () => {
+                const p = await propose(
                   "Completion pressure produced request-exception on forbidden effects. Lower completion; raise downside protection.",
                 );
                 setNotice(`Amendment ${p.id} recorded as proposed. Builder 1.3 remains installed.`);
@@ -132,7 +154,7 @@ function ValuesPage() {
                     {p.toUri.split("/").pop()}
                   </span>
                   {p.status === "proposed" ? (
-                    <Button size="sm" variant="ghost" onClick={() => accept(p.id)}>
+                    <Button size="sm" variant="ghost" onClick={() => void accept(p.id)}>
                       Accept into epoch
                     </Button>
                   ) : (
@@ -148,6 +170,13 @@ function ValuesPage() {
       <CoalitionDemo />
     </div>
   );
+}
+
+function CasBadge({ hash, ready, tick }: { hash: string; ready: boolean; tick: number }) {
+  void tick;
+  const present = kernel.objects.has(hash);
+  if (!ready && !present) return <Badge tone="warn">CAS pending</Badge>;
+  return <Badge tone={present ? "ok" : "danger"}>{present ? "CAS verified" : "CAS missing"}</Badge>;
 }
 
 function CoalitionDemo() {

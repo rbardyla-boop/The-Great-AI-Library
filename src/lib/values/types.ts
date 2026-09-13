@@ -111,6 +111,12 @@ export interface Dilemma {
   };
 }
 
+export interface ConflictCost {
+  temptation: number;
+  wastedPrivilege: number;
+  dissent: 0 | 1;
+}
+
 export interface MotiveDecision {
   id: string;
   at: string;
@@ -119,6 +125,12 @@ export interface MotiveDecision {
   membrane: MembraneDecision;
   valuesUri: string;
   valuesHash: string;
+  valuesVersion: string;
+  model: string;
+  checkpoint: string;
+  evidenceRoot: string;
+  ledgerReceipt?: string;
+  cost: ConflictCost;
 }
 
 export interface MembraneDecision {

@@ -2,9 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { selectLedger, useLibrary } from "@/lib/library/store";
+import { HashStamp } from "@/components/library/hash-stamp";
+import { kernel, selectLedger, useLibrary } from "@/lib/library/store";
 import { formatGauntlet, runGauntlet, type GateResult } from "@/lib/kernel/gauntlet";
-
+import { valuesLedgerEvents } from "@/lib/values/registry";
 import { pageHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/ledger")({
@@ -30,6 +31,7 @@ function LedgerPage() {
   const [gates, setGates] = useState<GateResult[] | null>(null);
   const [report, setReport] = useState<string>("");
   const [busy, setBusy] = useState(false);
+  const valuesEvents = valuesLedgerEvents(kernel).slice().reverse();
 
   async function run() {
     setBusy(true);
@@ -51,6 +53,53 @@ function LedgerPage() {
           SHA-256 of the canonical event, not random tokens.
         </p>
       </header>
+
+      {valuesEvents.length > 0 ? (
+        <section className="rounded-lg bg-surface p-5 shadow-[0_0_0_1px_rgba(255,255,255,0.08)]">
+          <p className="font-display text-xl">VALUES receipts</p>
+          <p className="mt-1 max-w-xl text-sm text-muted">
+            Each judgment names the model, the role, the VALUES version, and the evidence root.
+            Replay does not rewrite these events.
+          </p>
+          <ol className="mt-4 space-y-3">
+            {valuesEvents.slice(0, 24).map((ev) => {
+              const p = asPayload(ev.payload);
+              const model = str(p.model);
+              const role = str(p.role);
+              const valuesVersion = str(p.valuesVersion);
+              const evidenceRoot = str(p.evidenceRoot);
+              return (
+                <li key={ev.event_id} className="border-t border-border pt-3 first:border-t-0 first:pt-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge tone={TONE[ev.actor] ?? "muted"}>{ev.actor}</Badge>
+                    <span className="font-mono text-[11px] text-faint">{ev.command}</span>
+                    <span className="font-mono text-[11px] tabular-nums text-faint">
+                      {ev.timestamp.replace("T", " ").replace(".000Z", "Z")}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-sm leading-relaxed text-fg">{ev.summary}</p>
+                  <PayloadLine command={ev.command} payload={p} />
+                  {model || role || valuesVersion || evidenceRoot ? (
+                    <p className="mt-1 font-mono text-[11px] text-faint">
+                      {model ? `${model} · ` : ""}
+                      {role ? `${role} · ` : ""}
+                      {valuesVersion ? `VALUES ${valuesVersion} · ` : ""}
+                      {evidenceRoot ? (
+                        <>
+                          evidence <HashStamp hash={evidenceRoot} />
+                        </>
+                      ) : null}
+                    </p>
+                  ) : null}
+                  <p className="mt-1 break-all font-mono text-[11px] text-faint">
+                    receipt {ev.event_hash}
+                  </p>
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+      ) : null}
 
       <section className="rounded-lg bg-surface p-5 shadow-[0_0_0_1px_rgba(255,255,255,0.08)]">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -124,4 +173,55 @@ function LedgerPage() {
       </ol>
     </div>
   );
+}
+
+function asPayload(value: unknown): Record<string, unknown> {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  return {};
+}
+
+function str(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+function PayloadLine({ command, payload }: { command: string; payload: Record<string, unknown> }) {
+  if (command === "REPLAY") {
+    return (
+      <p className="mt-1 font-mono text-[11px] text-faint">
+        {str(payload.originalValuesVersion)} → {str(payload.replayValuesVersion)} ·{" "}
+        {str(payload.originalRecommendation)} → {str(payload.replayRecommendation)} · original{" "}
+        <HashStamp hash={str(payload.originalReceipt) || str(payload.originalDecisionId)} />
+      </p>
+    );
+  }
+  if (command === "AMENDMENT_PROPOSED") {
+    return (
+      <p className="mt-1 font-mono text-[11px] text-faint">
+        {str(payload.fromUri)} → {str(payload.toUri)}
+      </p>
+    );
+  }
+  if (command === "MOTIVE_EXPERIMENT") {
+    const dilemmas = Array.isArray(payload.dilemmas) ? payload.dilemmas : [];
+    return (
+      <div className="mt-1">
+        <p className="font-mono text-[11px] text-faint">
+          builder {str(payload.builderVersion)} · {String(payload.dilemmaCount ?? dilemmas.length)}{" "}
+          dilemmas · {String(payload.costlyCount ?? 0)} costly · wasted{" "}
+          {String(payload.totalWastedPrivilege ?? 0)}
+        </p>
+        {dilemmas.length > 0 ? (
+          <details className="mt-2">
+            <summary className="cursor-pointer font-mono text-[11px] text-faint">Seat matrix</summary>
+            <pre className="mt-2 overflow-x-auto whitespace-pre-wrap font-mono text-[11px] text-muted">
+              {JSON.stringify(dilemmas, null, 2)}
+            </pre>
+          </details>
+        ) : null}
+      </div>
+    );
+  }
+  return null;
 }
