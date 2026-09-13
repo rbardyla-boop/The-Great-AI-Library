@@ -1,0 +1,38 @@
+{
+  "url": "http://127.0.0.1:8081/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "The Great AI Library",
+      "hasCanvas": false,
+      "bodyTextLen": 365,
+      "bodyTextHash": "4409fdd084836fcfbf44197e6440b9eb219d28651ee4bb5b374455cffff1e146",
+      "bodyTextPrefix": "THE GREAT AI LIBRARY The library is not your files. It is the sy",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-built.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "The Great AI Library",
+      "hasCanvas": false,
+      "bodyTextLen": 365,
+      "bodyTextHash": "4409fdd084836fcfbf44197e6440b9eb219d28651ee4bb5b374455cffff1e146",
+      "bodyTextPrefix": "THE GREAT AI LIBRARY The library is not your files. It is the sy",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-built-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-built.json",
+  "divergesFromBaseline": false,
+  "baselineReasons": []
+}
