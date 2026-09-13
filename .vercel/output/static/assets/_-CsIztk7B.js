@@ -1,1 +1,0 @@
-import{U as e}from"./index-BdlDj4SE.js";var t=e;export{t as component};

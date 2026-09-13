@@ -1,0 +1,1 @@
+import{t as e}from"./jsx-runtime-B-hcVAMW.js";import{G as t,Y as n}from"./index-D1QyIr3j.js";var r=e();function i({hash:e,className:i}){return(0,r.jsx)(`span`,{className:n(`font-mono text-[11px] tracking-wider text-faint tabular-nums`,i),title:e,children:t(e)})}export{i as t};

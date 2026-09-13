@@ -1,7 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ConnectionCard } from "@/components/library/connection-card";
 import { selectDesk, selectRecords, useLibrary } from "@/lib/library/store";
+import { useDots } from "@/lib/dots/store";
 import type { DeskItem } from "@/lib/library/types";
 
 import { pageHead } from "@/lib/seo";
@@ -24,6 +26,14 @@ function Desk() {
   const decided = items.filter((i) => i.decision !== "pending");
   const records = selectRecords(overlay);
   const decide = useLibrary((s) => s.decideDesk);
+  const hypotheses = useDots((s) => s.lastReport?.connections ?? []);
+  const promote = useDots((s) => s.promote);
+  const keepOpen = useDots((s) => s.keepOpen);
+  const notice = useDots((s) => s.notice);
+  const openHyps = hypotheses
+    .filter((c) => c.status === "HYPOTHESIS" || c.status === "CONTESTED")
+    .slice()
+    .sort((a, b) => (a.search === "FAR" ? -1 : 1));
 
   const processed = records.length;
   const dupes = records.filter((r) => r.duplicateOf).length;
@@ -44,6 +54,28 @@ function Desk() {
           The Archivist does not pester. It maintains. Accept or reject only what needs a human.
         </p>
       </header>
+
+      {openHyps.length > 0 ? (
+        <section className="space-y-4">
+          <h2 className="font-display text-2xl">Hypotheses awaiting a human</h2>
+          <p className="max-w-xl text-sm text-muted">
+            Connect-the-Dots does not judge itself. Promote tries to make a fact and should fail
+            for analogies and gaps. Keep open leaves the original CONNECT untouched.
+          </p>
+          {notice ? <p className="text-sm text-warn">{notice}</p> : null}
+          <ul className="space-y-4">
+            {openHyps.map((c) => (
+              <li key={c.id}>
+                <ConnectionCard
+                  connection={c}
+                  onPromote={() => void promote(c.id)}
+                  onKeepOpen={() => void keepOpen(c.id)}
+                />
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <section className="rounded-xl bg-surface p-6 shadow-[0_0_0_1px_rgba(255,255,255,0.08)] md:p-8">
         <p className="font-display text-2xl">{processed} items processed overnight</p>

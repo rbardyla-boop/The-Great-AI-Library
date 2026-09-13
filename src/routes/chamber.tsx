@@ -10,6 +10,7 @@ import { convene, type Convened } from "@/lib/motive/session";
 import { useChamber } from "@/lib/motive/store";
 import { pageHead } from "@/lib/seo";
 import type { Recommendation } from "@/lib/values/types";
+import { DotsPanel } from "@/components/library/dots-panel";
 import { cn } from "@/lib/cn";
 
 export const Route = createFileRoute("/chamber")({
@@ -66,8 +67,11 @@ function ChamberPage() {
         <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted">
           Six roles, one checkpoint. VALUES recommend under cost. The Hive membrane authorizes — or
           does not. An agent may change its mind. It may not silently change the constitution.
+          Connect-the-Dots sits beside them as a specialist that proposes, never proves.
         </p>
       </header>
+
+      <DotsPanel />
 
       <section className="rounded-lg bg-surface p-5 shadow-[0_0_0_1px_rgba(255,255,255,0.08)]">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">

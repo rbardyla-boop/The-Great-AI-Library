@@ -8,7 +8,7 @@ export const VALUES_EVALUATOR = "gal-values-eval/1.0";
 export const VALUES_CHECKPOINT = "openhive-identical-base-6";
 
 export function unsignedProfile(profile: ValuesProfile): Omit<ValuesProfile, "hash"> {
-  return {
+  const unsigned: Omit<ValuesProfile, "hash"> = {
     uri: profile.uri,
     role: profile.role,
     name: profile.name,
@@ -17,6 +17,8 @@ export function unsignedProfile(profile: ValuesProfile): Omit<ValuesProfile, "ha
     constitutional: profile.constitutional,
     preferences: profile.preferences,
   };
+  if (profile.specialist) unsigned.specialist = profile.specialist;
+  return unsigned;
 }
 
 export function valuesCanonical(profile: ValuesProfile): string {

@@ -68,5 +68,10 @@ export const CONSTITUTION = {
       title: "Intelligence cannot silently become authority",
       body: "A coalition may pool intelligence. It must not pool authority. Peer GO grants nothing. A child identity inherits zero trust. Secret taint cannot ride a public network because a collaborator asked nicely.",
     },
+    {
+      id: "XIV",
+      title: "Connect-the-Dots may create hypotheses. It may not create facts.",
+      body: "A surprising connection is valuable because it can be tested, not because it sounds clever. Analogies, gaps, clusters, and far search are derivative objects. They never acquire a truth field. Promotion of unsupported information is a membrane denial, not a score.",
+    },
   ],
 } as const;

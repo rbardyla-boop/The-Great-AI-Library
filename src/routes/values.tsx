@@ -37,6 +37,7 @@ function ValuesPage() {
   }, []);
 
   const installed = profiles.filter((p) => p.version === "1.3.0");
+  const connector = profiles.find((p) => p.role === "connector");
   const nextBuilder = profiles.find((p) => p.role === "builder" && p.version === "1.4.0");
 
   return (
@@ -109,6 +110,40 @@ function ValuesPage() {
           ))}
         </div>
       </section>
+
+      {connector ? (
+        <section className="rounded-lg bg-surface p-5 shadow-[0_0_0_1px_rgba(255,255,255,0.08)]">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-display text-xl">{connector.name}</p>
+            <Badge>{connector.version}</Badge>
+            <CasBadge hash={connector.hash} ready={ready} tick={tick} />
+          </div>
+          <p className="mt-1 break-all font-mono text-[11px] text-faint">
+            {connector.uri} · <HashStamp hash={connector.hash} />
+          </p>
+          <p className="mt-3 text-sm leading-relaxed text-muted">{connector.emphasis}</p>
+          <p className="mt-2 text-sm text-muted">
+            Not a MOTIVE-0 seat. It proposes candidate relationships. Skeptic, Archivist, and
+            Explorer attack them. The Desk decides. It never writes a truth field.
+          </p>
+          <dl className="mt-4 grid grid-cols-2 gap-2 font-mono text-[11px] text-muted">
+            {Object.entries(connector.preferences).map(([k, w]) => (
+              <div key={k} className="flex justify-between gap-2">
+                <dt>{k}</dt>
+                <dd className="tabular-nums text-fg">{w}</dd>
+              </div>
+            ))}
+            {connector.specialist
+              ? Object.entries(connector.specialist).map(([k, w]) => (
+                  <div key={k} className="flex justify-between gap-2">
+                    <dt>{k}</dt>
+                    <dd className="tabular-nums text-fg">{w}</dd>
+                  </div>
+                ))
+              : null}
+          </dl>
+        </section>
+      ) : null}
 
       {nextBuilder ? (
         <section className="rounded-lg bg-surface p-5 shadow-[0_0_0_1px_rgba(255,255,255,0.08)]">

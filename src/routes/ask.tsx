@@ -15,6 +15,7 @@ import {
 import { askArchivist } from "@/lib/ask";
 import { auditAnswer } from "@/lib/kernel/auditor";
 import type { Brief, RetrievalChannel } from "@/lib/library/types";
+import { DotsPanel } from "@/components/library/dots-panel";
 import { pageHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/ask")({
@@ -258,6 +259,8 @@ function Ask() {
           ) : null}
         </article>
       ) : null}
+
+      <DotsPanel query={question} />
     </div>
   );
 }

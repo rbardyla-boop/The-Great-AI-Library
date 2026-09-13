@@ -8,6 +8,7 @@ type Spec = {
   version: string;
   emphasis: string;
   preferences: Record<PreferenceId, number>;
+  specialist?: ValuesProfile["specialist"];
 };
 
 const SPECS: Spec[] = [
@@ -60,6 +61,15 @@ const SPECS: Spec[] = [
     emphasis: "Keep incompatible claims on the table until a human files.",
     preferences: { novelty: 3, completion: 5, falsification: 6, provenance: 7, downside: 7, contradiction: 10 },
   },
+  {
+    role: "connector",
+    name: "Connect-the-Dots",
+    version: "1.0.0",
+    emphasis:
+      "What relationship has everyone else failed to notice. Imaginative, never contaminating. A surprising connection is valuable because it can be tested, not because it sounds clever.",
+    preferences: { novelty: 9, completion: 2, falsification: 8, provenance: 9, downside: 5, contradiction: 9 },
+    specialist: { "structural-analogy": 10, "cross-domain-reach": 10, "gap-sensitivity": 9 },
+  },
 ];
 
 export function profileUri(role: RoleId, version: string): string {
@@ -67,7 +77,7 @@ export function profileUri(role: RoleId, version: string): string {
 }
 
 export async function materialize(spec: Spec): Promise<ValuesProfile> {
-  const unsigned = {
+  const unsigned: Omit<ValuesProfile, "hash"> = {
     uri: profileUri(spec.role, spec.version),
     role: spec.role,
     name: spec.name,
@@ -76,6 +86,7 @@ export async function materialize(spec: Spec): Promise<ValuesProfile> {
     constitutional: CONSTITUTIONAL_VALUES,
     preferences: spec.preferences,
   };
+  if (spec.specialist) unsigned.specialist = spec.specialist;
   const hash = await sha256Text(canonicalJson(unsigned));
   return { ...unsigned, hash };
 }
@@ -98,6 +109,12 @@ export async function profileByRole(role: RoleId, version = "1.3.0"): Promise<Va
   return found;
 }
 
-export const INSTALLED_URIS = SPECS.filter((s) => s.version === "1.3.0").map((s) =>
+export function isInstalledLaw(profile: Pick<ValuesProfile, "role" | "version">): boolean {
+  if (profile.role === "builder") return profile.version === "1.3.0";
+  if (profile.role === "connector") return profile.version === "1.0.0";
+  return profile.version === "1.3.0";
+}
+
+export const INSTALLED_URIS = SPECS.filter((s) => isInstalledLaw(s)).map((s) =>
   profileUri(s.role, s.version),
 );

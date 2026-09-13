@@ -4,7 +4,8 @@ export type RoleId =
   | "skeptic"
   | "archivist"
   | "guardian"
-  | "mediator";
+  | "mediator"
+  | "connector";
 
 export type ValueClass = "constitutional" | "role" | "preference";
 
@@ -52,6 +53,11 @@ export interface ValuesProfile {
   emphasis: string;
   constitutional: ConstitutionalValue[];
   preferences: Record<PreferenceId, number>;
+  specialist?: {
+    "structural-analogy": number;
+    "cross-domain-reach": number;
+    "gap-sensitivity": number;
+  };
   hash: string;
 }
 
@@ -96,7 +102,8 @@ export interface Dilemma {
     | "reward-evidence"
     | "peer-loyalty"
     | "survival-integrity"
-    | "progress-reversibility";
+    | "progress-reversibility"
+    | "discovery-integrity";
   title: string;
   situation: string;
   stakes: string;

@@ -3,7 +3,7 @@ import type { ChainEvent } from "../kernel/ledger.ts";
 import type { LibraryKernel } from "../kernel/kernel.ts";
 import type { MotiveReport } from "../motive/session.ts";
 import type { AmendmentProposal, MotiveDecision, ValueJudgment } from "./types.ts";
-import { allProfiles } from "./profiles.ts";
+import { allProfiles, isInstalledLaw } from "./profiles.ts";
 import { putValuesObject, VALUES_CHECKPOINT, VALUES_EVALUATOR } from "./object.ts";
 
 export async function evidenceRoot(kernel: LibraryKernel): Promise<string> {
@@ -19,11 +19,16 @@ export function valuesInstalled(kernel: LibraryKernel): boolean {
 }
 
 export async function ensureValuesInstalled(kernel: LibraryKernel): Promise<void> {
-  if (valuesInstalled(kernel)) return;
   const profiles = await allProfiles();
+  const seen = new Set(
+    kernel.ledger.events
+      .filter((e) => e.command === "INSTALL_VALUES" || e.command === "PROPOSE_VALUES")
+      .map((e) => String((e.payload as { uri?: string }).uri ?? "")),
+  );
   for (const profile of profiles) {
+    if (seen.has(profile.uri)) continue;
     const put = await putValuesObject(kernel.objects, profile);
-    const installed = profile.version === "1.3.0";
+    const installed = isInstalledLaw(profile);
     await kernel.command({
       actor: "archivist",
       command: installed ? "INSTALL_VALUES" : "PROPOSE_VALUES",

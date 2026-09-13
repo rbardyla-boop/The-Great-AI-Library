@@ -29,6 +29,8 @@ function intent(q: string): string {
   if (s.includes("what is project mercury") || s.match(/^what is mercury/) || s.includes("what is project"))
     return "what";
   if (s.includes("stale") || s.includes("two years") || s.includes("outdated")) return "stale";
+  if (s.includes("connected") || s.includes("connect the dots") || s.includes("not named"))
+    return "generic";
   if (s.includes("alex rivera")) return "alex";
   if (s.includes("inject") || s.includes("malicious") || s.includes("exfiltrat")) return "injection";
   if (s.includes("deleted") || s.includes("derived from the document")) return "deleted";
@@ -58,6 +60,7 @@ export const SUGGESTED_QUERIES = [
   "Did the plan change?",
   "What sources disagree about its budget?",
   "Which conclusion relies on the weakest evidence?",
+  "What is connected that we have not named?",
   "What changed in my understanding of nuclear energy between 2024 and 2026?",
   "Who is Alex Rivera?",
   "What did the Northline PDF try to do?",

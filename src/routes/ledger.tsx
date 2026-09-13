@@ -6,6 +6,7 @@ import { HashStamp } from "@/components/library/hash-stamp";
 import { kernel, selectLedger, useLibrary } from "@/lib/library/store";
 import { formatGauntlet, runGauntlet, type GateResult } from "@/lib/kernel/gauntlet";
 import { valuesLedgerEvents } from "@/lib/values/registry";
+import { dotsLedgerEvents } from "@/lib/dots/registry";
 import { pageHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/ledger")({
@@ -32,6 +33,7 @@ function LedgerPage() {
   const [report, setReport] = useState<string>("");
   const [busy, setBusy] = useState(false);
   const valuesEvents = valuesLedgerEvents(kernel).slice().reverse();
+  const dotsEvents = dotsLedgerEvents(kernel).slice().reverse();
 
   async function run() {
     setBusy(true);
@@ -53,6 +55,38 @@ function LedgerPage() {
           SHA-256 of the canonical event, not random tokens.
         </p>
       </header>
+
+      {dotsEvents.length > 0 ? (
+        <section className="rounded-lg bg-surface p-5 shadow-[0_0_0_1px_rgba(255,255,255,0.08)]">
+          <p className="font-display text-xl">Discovery receipts</p>
+          <p className="mt-1 max-w-xl text-sm text-muted">
+            CONNECT files a hypothesis. CHALLENGE, SUPPORT, FALSIFY, and PROMOTE cite that
+            receipt. Replay is not rewrite. There is no truth field.
+          </p>
+          <ol className="mt-4 space-y-3">
+            {dotsEvents.slice(0, 24).map((ev) => {
+              const p = asPayload(ev.payload);
+              return (
+                <li key={ev.event_id} className="border-t border-border pt-3 first:border-t-0 first:pt-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge tone={TONE[ev.actor] ?? "muted"}>{ev.actor}</Badge>
+                    <span className="font-mono text-[11px] text-faint">{ev.command}</span>
+                    <span className="font-mono text-[11px] tabular-nums text-faint">
+                      {ev.timestamp.replace("T", " ").replace(".000Z", "Z")}
+                    </span>
+                    {ev.result === "denied" ? <Badge tone="danger">denied</Badge> : null}
+                  </div>
+                  <p className="mt-2 text-sm leading-relaxed text-fg">{ev.summary}</p>
+                  <PayloadLine command={ev.command} payload={p} />
+                  <p className="mt-1 break-all font-mono text-[11px] text-faint">
+                    receipt {ev.event_hash}
+                  </p>
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+      ) : null}
 
       {valuesEvents.length > 0 ? (
         <section className="rounded-lg bg-surface p-5 shadow-[0_0_0_1px_rgba(255,255,255,0.08)]">
@@ -221,6 +255,28 @@ function PayloadLine({ command, payload }: { command: string; payload: Record<st
           </details>
         ) : null}
       </div>
+    );
+  }
+  if (command === "CONNECT" || command === "IMPORT_HYPOTHESIS") {
+    return (
+      <p className="mt-1 font-mono text-[11px] text-faint">
+        {str(payload.connectionId)} · {str(payload.type)} · {str(payload.search)} · status{" "}
+        {str(payload.status)} · {str(payload.model)}
+      </p>
+    );
+  }
+  if (
+    command === "CHALLENGE" ||
+    command === "SUPPORT" ||
+    command === "FALSIFY" ||
+    command === "PROMOTE" ||
+    command === "KEEP_OPEN"
+  ) {
+    return (
+      <p className="mt-1 font-mono text-[11px] text-faint">
+        {str(payload.connectionId)} · {str(payload.fromStatus)} → {str(payload.toStatus) || str(payload.status)}{" "}
+        · original <HashStamp hash={str(payload.originalReceipt) || str(payload.originalHash)} />
+      </p>
     );
   }
   return null;

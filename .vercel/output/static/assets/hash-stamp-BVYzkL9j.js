@@ -1,1 +1,0 @@
-import{t as e}from"./jsx-runtime-B-hcVAMW.js";import{H as t,R as n}from"./index-BdlDj4SE.js";var r=e();function i({hash:e,className:i}){return(0,r.jsx)(`span`,{className:t(`font-mono text-[11px] tracking-wider text-faint tabular-nums`,i),title:e,children:n(e)})}export{i as t};

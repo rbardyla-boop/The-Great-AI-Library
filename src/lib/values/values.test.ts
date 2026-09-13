@@ -29,7 +29,7 @@ describe("VALUES objects", () => {
     await ensureValuesInstalled(k);
     const installs = k.ledger.events.filter((e) => e.command === "INSTALL_VALUES");
     const proposes = k.ledger.events.filter((e) => e.command === "PROPOSE_VALUES");
-    assert.equal(installs.length, 6);
+    assert.equal(installs.length, 7);
     assert.equal(proposes.length, 1);
     const profiles = await allProfiles();
     for (const p of profiles) assert.equal(k.objects.has(p.hash), true);
