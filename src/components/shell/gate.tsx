@@ -28,7 +28,7 @@ export function Gate() {
         </div>
       </div>
       <footer className="border-t border-border px-6 py-4 font-mono text-[11px] text-faint">
-        M0 — The Library must remember without lying
+        M1 — The Library remembers without lying
       </footer>
     </div>
   );

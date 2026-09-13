@@ -1,4 +1,5 @@
 import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { AppShell } from "@/components/shell/app-shell";
@@ -54,7 +55,21 @@ function Root() {
 
 function ShellGate() {
   const entered = useLibrary((s) => s.entered);
+  const ready = useLibrary((s) => s.ready);
+  const boot = useLibrary((s) => s.boot);
+
+  useEffect(() => {
+    void boot();
+  }, [boot]);
+
   if (!entered) return <Gate />;
+  if (!ready) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center bg-bg text-muted">
+        <p className="font-mono text-sm">Opening the Stacks…</p>
+      </div>
+    );
+  }
   return (
     <AppShell>
       <Outlet />

@@ -1,1 +1,0 @@
-import{l as e,u as t}from"./store-D8Lx4EvA.js";import{a as n}from"./index-BQqIoLt8.js";var r=n();function i({hash:n,className:i}){return(0,r.jsx)(`span`,{className:t(`font-mono text-[11px] tracking-wider text-faint tabular-nums`,i),title:n,children:e(n)})}export{i as t};

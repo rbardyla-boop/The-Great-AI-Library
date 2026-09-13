@@ -13,6 +13,7 @@ import {
   useLibrary,
 } from "@/lib/library/store";
 import { askArchivist } from "@/lib/ask";
+import { auditAnswer } from "@/lib/kernel/auditor";
 import type { Brief, RetrievalChannel } from "@/lib/library/types";
 
 export const Route = createFileRoute("/ask")({ component: Ask });
@@ -68,7 +69,24 @@ function Ask() {
         );
         return;
       }
-      setBrief({ ...brief, answer: res.text, model: "grok-4.5" });
+      const audited = auditAnswer(res.text, passages.slice(0, 10));
+      if (audited.refused) {
+        setGrokError("Answer Auditor refused the brief. Uncited library claims were not admitted.");
+        setBrief({
+          ...brief,
+          answer: audited.text,
+          model: "grok-4.5",
+        });
+        return;
+      }
+      setBrief({
+        ...brief,
+        answer:
+          audited.redacted > 0
+            ? `${audited.text}\n\n— Auditor redacted ${audited.redacted} unsupported sentence(s).`
+            : audited.text,
+        model: "grok-4.5",
+      });
     } catch {
       setGrokError("The model could not be reached. Local brief is unchanged.");
     } finally {

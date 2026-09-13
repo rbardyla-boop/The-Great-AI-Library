@@ -196,4 +196,7 @@ export interface AccessionJob {
   stages: string[];
   done: boolean;
   recordId?: string;
+  receipts?: string[];
+  failed?: number;
+  error?: string;
 }

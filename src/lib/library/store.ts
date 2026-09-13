@@ -1,21 +1,12 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import {
-  CLAIMS,
-  COLLECTIONS,
-  CONTRADICTIONS,
-  DESK_ITEMS,
-  ENTITIES,
-  LEDGER,
-  RECORDS,
-  RELATIONSHIPS,
-} from "./corpus";
+import { COLLECTIONS, ENTITIES, RELATIONSHIPS } from "./corpus";
 import { LIBRARIANS } from "./librarians";
-import {
-  extractClaimsFromRecord,
-  looksInjected,
-  makeRecordFromDrop,
-} from "./accession";
+import { LibraryKernel } from "@/lib/kernel/kernel";
+import { bootKernel, clearKernelStore, saveKernel } from "@/lib/kernel/persist";
+import { seedMercury } from "@/lib/kernel/seed";
+import { signLibrarian } from "@/lib/kernel/librarians";
+import { utf8 } from "@/lib/kernel/crypto";
 import type {
   AccessionJob,
   Claim,
@@ -29,259 +20,187 @@ import type {
   Relationship,
 } from "./types";
 
-export type DeskDecision = "accepted" | "rejected" | "pending";
+export type DeskDecision = "pending" | "accepted" | "rejected";
 
-interface Overlay {
+export const kernel = new LibraryKernel();
+
+export interface Overlay {
   entered: boolean;
-  userRecords: LibraryRecord[];
-  userClaims: Claim[];
-  extraLedger: LedgerEvent[];
-  deskDecisions: Record<string, DeskDecision>;
-  installed: string[];
+  ready: boolean;
+  tick: number;
   blockedInstall: string[];
-  wipedDerivatives: boolean;
+  deskDecisions: Record<string, DeskDecision>;
   jobs: AccessionJob[];
+  wipedDerivatives: boolean;
+  installed: string[];
 }
 
 interface LibraryState extends Overlay {
   enter: () => void;
+  boot: () => Promise<void>;
   decideDesk: (id: string, decision: Exclude<DeskDecision, "pending">) => void;
-  installLibrarian: (id: string) => { ok: boolean; reason?: string };
+  installLibrarian: (id: string) => Promise<{ ok: boolean; reason?: string }>;
   uninstallLibrarian: (id: string) => void;
-  accessionText: (filename: string, body: string) => string;
-  wipeDerivatives: () => void;
-  restoreDerivatives: () => void;
-  resetLibrary: () => void;
+  accessionText: (filename: string, body: string) => Promise<string>;
+  wipeDerivatives: () => Promise<void>;
+  restoreDerivatives: () => Promise<void>;
+  resetLibrary: () => Promise<void>;
   advanceJob: (id: string, stage: number, done?: boolean, recordId?: string) => void;
+  runFixity: () => Promise<{ ok: boolean; mismatches: string[] }>;
 }
 
-const EMPTY_OVERLAY: Overlay = {
-  entered: false,
-  userRecords: [],
-  userClaims: [],
-  extraLedger: [],
-  deskDecisions: {},
-  installed: ["research"],
-  blockedInstall: [],
-  wipedDerivatives: false,
-  jobs: [],
-};
-
-function receipt(): string {
-  return `rcv-${Math.random().toString(16).slice(2, 10)}`;
+function snap(s: Overlay): Overlay {
+  const shot = kernel.snapshot();
+  return {
+    ...s,
+    tick: s.tick + 1,
+    jobs: shot.jobs,
+    wipedDerivatives: shot.wipedDerivatives,
+    installed: shot.installed.map((i) => i.id),
+  };
 }
 
-function nowIso() {
-  return new Date().toISOString();
+async function persistNow() {
+  await saveKernel(kernel);
 }
 
 export const useLibrary = create<LibraryState>()(
   persist(
     (set, get) => ({
-      ...EMPTY_OVERLAY,
+      entered: false,
+      ready: false,
+      tick: 0,
+      blockedInstall: [],
+      deskDecisions: {},
+      jobs: [],
+      wipedDerivatives: false,
+      installed: [],
       enter: () => set({ entered: true }),
-      decideDesk: (id, decision) => {
-        const item = DESK_ITEMS.find((d) => d.id === id);
-        set({
-          deskDecisions: { ...get().deskDecisions, [id]: decision },
-          extraLedger: [
-            {
-              id: `led-user-${Date.now()}`,
-              at: nowIso(),
-              actor: "human",
-              command: decision === "accepted" ? "ACCEPT_PROPOSAL" : "REJECT_PROPOSAL",
-              summary: `${decision === "accepted" ? "Accepted" : "Rejected"} desk item: ${item?.title ?? id}`,
-              receipt: receipt(),
-              relatedIds: [id],
-            },
-            ...get().extraLedger,
-          ],
-        });
+      boot: async () => {
+        if (get().ready) return;
+        await bootKernel(kernel);
+        set({ ...snap(get()), ready: true });
       },
-      installLibrarian: (id) => {
+      decideDesk: (id, decision) => {
+        kernel.decideDesk(id, decision);
+        set({
+          ...snap(get()),
+          deskDecisions: { ...get().deskDecisions, [id]: decision },
+        });
+        void persistNow();
+      },
+      installLibrarian: async (id) => {
         const lib = LIBRARIANS.find((l) => l.id === id);
         if (!lib) return { ok: false, reason: "Unknown librarian" };
-        if (lib.permissions.shell || lib.permissions.network || lib.permissions["sources.write"]) {
-          set({
-            blockedInstall: [...new Set([...get().blockedInstall, id])],
-            extraLedger: [
-              {
-                id: `led-user-${Date.now()}`,
-                at: nowIso(),
-                actor: "policy",
-                command: "REFUSE_INSTALL",
-                summary: `${lib.name} requested shell/network/source-write. Update stopped. No silent privilege expansion.`,
-                receipt: receipt(),
-                relatedIds: [id],
-              },
-              ...get().extraLedger,
-            ],
-          });
-          return {
-            ok: false,
-            reason:
-              "Install stopped. This package requests shell, network, or the right to modify original evidence.",
-          };
+        const signed = await signLibrarian(lib);
+        const previous = kernel.catalog.data.installed.find((i) => i.id === id);
+        const result = await kernel.installSigned(signed, previous ? { ...signed, librarian: { ...lib, version: previous.version }, manifest: { ...signed.manifest, version: previous.version, permissions: previous.permissions } } : null);
+        if (!result.ok) {
+          set({ ...snap(get()), blockedInstall: [...new Set([...get().blockedInstall, id])] });
+          void persistNow();
+          return { ok: false, reason: result.reason };
         }
-        if (get().installed.includes(id)) return { ok: true };
-        set({
-          installed: [...get().installed, id],
-          extraLedger: [
-            {
-              id: `led-user-${Date.now()}`,
-              at: nowIso(),
-              actor: "human",
-              command: "INSTALL_LIBRARIAN",
-              summary: `Installed ${lib.name} ${lib.version} with declared permissions only.`,
-              receipt: receipt(),
-              relatedIds: [id],
-            },
-            ...get().extraLedger,
-          ],
-        });
+        set(snap(get()));
+        void persistNow();
         return { ok: true };
       },
       uninstallLibrarian: (id) => {
-        set({ installed: get().installed.filter((x) => x !== id) });
+        kernel.catalog.data.installed = kernel.catalog.data.installed.filter((i) => i.id !== id);
+        set(snap(get()));
+        void persistNow();
       },
-      accessionText: (filename, body) => {
-        const record = makeRecordFromDrop(filename, body);
-        const claims = extractClaimsFromRecord(record);
-        const injected = looksInjected(body);
-        const job: AccessionJob = {
-          id: `job-${record.id}`,
-          filename,
-          stage: 0,
-          stages: [
-            "Accession",
-            "Parse",
-            "Fingerprint",
-            "Classify",
-            "Catalog",
-            "Claim extraction",
-            "Temporalize",
-            "Reconcile",
-            "Contradiction",
-            "Shelving",
-            "Index",
-            "Preserve",
-          ],
-          done: false,
-          recordId: record.id,
-        };
+      accessionText: async (filename, body) => {
+        const job = kernel.startJob({ filename, bytes: utf8(body) });
+        set(snap(get()));
+        for (let i = 0; i < 12; i++) {
+          await kernel.advanceJob(job.id);
+          set(snap(get()));
+        }
+        void persistNow();
+        return job.recordId ?? job.id;
+      },
+      wipeDerivatives: async () => {
+        await kernel.wipeDerivatives();
+        set(snap(get()));
+        void persistNow();
+      },
+      restoreDerivatives: async () => {
+        const summary = RECORDS_DERIVATIVE();
+        if (summary) {
+          await kernel.rebuildDerivative({
+            id: summary.id,
+            title: summary.title,
+            body: summary.body,
+            derivedFrom: summary.derivedFrom ?? [],
+            processor: "grok-4.5",
+          });
+        }
+        set(snap(get()));
+        void persistNow();
+      },
+      resetLibrary: async () => {
+        kernel.catalog.reset();
+        for (const hash of kernel.objects.hashes()) kernel.objects.delete(hash);
+        kernel.ledger.load([]);
+        kernel.jobs.clear();
+        await clearKernelStore();
+        await seedMercury(kernel);
+        await persistNow();
         set({
-          userRecords: [record, ...get().userRecords],
-          userClaims: [...claims, ...get().userClaims],
-          jobs: [job, ...get().jobs],
-          extraLedger: [
-            {
-              id: `led-user-${Date.now()}`,
-              at: nowIso(),
-              actor: "archivist",
-              command: injected ? "REFUSE_CAPABILITY" : "ACCESSION",
-              summary: injected
-                ? `Accessioned ${filename} as restricted data. Injection text did not grant capabilities.`
-                : `Accessioned ${filename}. Hash ${record.contentHash.slice(0, 8)}…`,
-              receipt: receipt(),
-              relatedIds: [record.id],
-            },
-            ...get().extraLedger,
-          ],
+          ...snap(get()),
+          entered: true,
+          ready: true,
+          blockedInstall: [],
+          deskDecisions: {},
         });
-        return record.id;
       },
-      wipeDerivatives: () =>
-        set({
-          wipedDerivatives: true,
-          extraLedger: [
-            {
-              id: `led-user-${Date.now()}`,
-              at: nowIso(),
-              actor: "human",
-              command: "WIPE_DERIVATIVES",
-              summary:
-                "Deleted AI summaries, tags-as-memory, and derived origin claims. Originals untouched. Fixity intact.",
-              receipt: receipt(),
-              relatedIds: ["doc-ai-summary"],
-            },
-            ...get().extraLedger,
-          ],
-        }),
-      restoreDerivatives: () =>
-        set({
-          wipedDerivatives: false,
-          extraLedger: [
-            {
-              id: `led-user-${Date.now()}`,
-              at: nowIso(),
-              actor: "archivist",
-              command: "REBUILD_DERIVATIVES",
-              summary:
-                "Rebuilt derivatives with a different processor. Original hashes unchanged (MODEL-SWAP GATE).",
-              receipt: receipt(),
-              relatedIds: ["doc-ai-summary"],
-            },
-            ...get().extraLedger,
-          ],
-        }),
-      resetLibrary: () => set({ ...EMPTY_OVERLAY, entered: true }),
-      advanceJob: (id, stage, done, recordId) =>
-        set({
-          jobs: get().jobs.map((j) =>
-            j.id === id ? { ...j, stage, done: Boolean(done), recordId: recordId ?? j.recordId } : j,
-          ),
-        }),
+      advanceJob: () => {
+        /* pipeline advances inside accessionText */
+      },
+      runFixity: async () => {
+        const result = await kernel.recheckFixity();
+        set(snap(get()));
+        void persistNow();
+        return result;
+      },
     }),
     {
       name: "great-ai-library-overlay",
-      partialize: (s) => ({
-        entered: s.entered,
-        userRecords: s.userRecords,
-        userClaims: s.userClaims,
-        extraLedger: s.extraLedger,
-        deskDecisions: s.deskDecisions,
-        installed: s.installed,
-        blockedInstall: s.blockedInstall,
-        wipedDerivatives: s.wipedDerivatives,
-      }),
+      partialize: (s) => ({ entered: s.entered }),
     },
   ),
 );
 
-export function selectRecords(s: Overlay): LibraryRecord[] {
-  const base = s.wipedDerivatives ? RECORDS.filter((r) => r.kind === "original") : RECORDS;
-  return [...s.userRecords, ...base];
+function RECORDS_DERIVATIVE() {
+  return kernel.catalog.data.records.find((r) => r.id === "doc-ai-summary") ?? {
+    id: "doc-ai-summary",
+    title: "Executive summary of Project Mercury (model draft)",
+    body: "Project Mercury originated with Dr. Naomi Chen in January 2024. Authorized budget is $72 million as of May 2025. Payback is not a program commitment.",
+    derivedFrom: ["doc-proposal", "doc-addendum"],
+  };
 }
 
-export function selectClaims(s: Overlay): Claim[] {
-  const hidden = s.wipedDerivatives ? new Set(["C13001", "C13002"]) : null;
-  const base = hidden ? CLAIMS.filter((c) => !hidden.has(c.id)) : CLAIMS;
-  return [...s.userClaims, ...base];
+export function selectRecords(_s: Overlay): LibraryRecord[] {
+  return kernel.catalog.data.records;
 }
 
-export function selectContradictions(s: Overlay): Contradiction[] {
-  if (!s.wipedDerivatives) return CONTRADICTIONS;
-  return CONTRADICTIONS.filter((c) => c.id !== "X-origin" && c.id !== "X-payback").concat(
-    CONTRADICTIONS.filter((c) => c.id === "X-origin" || c.id === "X-payback").map((c) => ({
-      ...c,
-      status: "accepted" as const,
-      summary: c.summary + " Derived side wiped.",
-    })),
-  );
+export function selectClaims(_s: Overlay): Claim[] {
+  return kernel.catalog.data.claims;
+}
+
+export function selectContradictions(_s: Overlay): Contradiction[] {
+  return kernel.catalog.data.contradictions;
 }
 
 export function selectDesk(s: Overlay): (DeskItem & { decision: DeskDecision })[] {
-  return DESK_ITEMS.filter((d) => {
-    if (s.wipedDerivatives && d.id === "desk-unsupported") return false;
-    return true;
-  }).map((d) => ({
+  return kernel.catalog.data.desk.map((d) => ({
     ...d,
     decision: s.deskDecisions[d.id] ?? "pending",
   }));
 }
 
-export function selectLedger(s: Overlay): LedgerEvent[] {
-  return [...s.extraLedger, ...LEDGER].sort((a, b) => (a.at < b.at ? 1 : -1));
+export function selectLedger(_s: Overlay): LedgerEvent[] {
+  return kernel.uiLedger();
 }
 
 export const seed = {

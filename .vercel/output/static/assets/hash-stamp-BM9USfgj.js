@@ -1,0 +1,1 @@
+import{b as e,v as t}from"./store-CEcaLWVb.js";import{a as n}from"./index-DNviekFH.js";var r=n();function i({hash:n,className:i}){return(0,r.jsx)(`span`,{className:e(`font-mono text-[11px] tracking-wider text-faint tabular-nums`,i),title:n,children:t(n)})}export{i as t};

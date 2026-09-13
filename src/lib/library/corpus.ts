@@ -1,4 +1,3 @@
-import { fingerprint } from "./hash";
 import type {
   Claim,
   Collection,
@@ -18,7 +17,7 @@ function rec(
     kind: "original",
     accessPolicy: "open",
     tags: [],
-    contentHash: fingerprint(partial.id + partial.body),
+    contentHash: "",
     ...partial,
   };
 }
@@ -1063,17 +1062,4 @@ export const LEDGER: LedgerEvent[] = [
   },
 ];
 
-export const PIPELINE_STAGES = [
-  "Accession",
-  "Parse",
-  "Fingerprint",
-  "Classify",
-  "Catalog",
-  "Claim extraction",
-  "Temporalize",
-  "Reconcile",
-  "Contradiction",
-  "Shelving",
-  "Index",
-  "Preserve",
-] as const;
+export { ACCESSION_STAGES as PIPELINE_STAGES } from "../kernel/accession.ts";

@@ -75,9 +75,10 @@ function Exchange() {
                     size="sm"
                     variant={lib.malicious ? "danger" : "primary"}
                     onClick={() => {
-                      const result = installLibrarian(lib.id);
-                      setNotice(result.ok ? null : (result.reason ?? "Stopped"));
-                      setFocus(lib);
+                      void installLibrarian(lib.id).then((result) => {
+                        setNotice(result.ok ? null : (result.reason ?? "Stopped"));
+                        setFocus(lib);
+                      });
                     }}
                   >
                     Install
