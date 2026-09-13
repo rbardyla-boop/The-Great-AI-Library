@@ -32,8 +32,9 @@ function Desk() {
   const keepOpen = useDots((s) => s.keepOpen);
   const support = useDots((s) => s.support);
   const notice = useDots((s) => s.notice);
+  const policy = useDots((s) => s.policy);
   void overlay.tick;
-  const fromLedger = connectionsFromLedger(kernel);
+  const fromLedger = connectionsFromLedger(kernel, policy);
   const listed = fromLedger.length ? fromLedger : hypotheses;
   const openHyps = listed
     .filter((c) => (c.localStatus ?? c.status) !== "FALSIFIED")
@@ -64,9 +65,9 @@ function Desk() {
         <section className="space-y-4">
           <h2 className="font-display text-2xl">Hypotheses awaiting a human</h2>
           <p className="max-w-xl text-sm text-muted">
-            Connect-the-Dots does not judge itself. A high score is not evidence. SUPPORTED
-            cites local review or support receipts. Analogies and gaps stay hypotheses.
-            Keep open leaves the original CONNECT untouched.
+            Connect-the-Dots does not judge itself. Opinion is not evidence. SUPPORTED cites
+            independent sources. Analogies and gaps stay hypotheses. Keep open leaves the original
+            CONNECT untouched.
           </p>
           {notice ? <p className="text-sm text-warn">{notice}</p> : null}
           <ul className="space-y-4">
@@ -79,8 +80,17 @@ function Desk() {
                   onSupport={() =>
                     void support(
                       c.id,
-                      "Desk filed local support. Ranking is not evidence.",
+                      "Desk filed SUPPORT — OPINION. Agreement is not evidence.",
                       "Archivist",
+                      { supportClass: "OPINION" },
+                    )
+                  }
+                  onEvidence={() =>
+                    void support(
+                      c.id,
+                      "Desk filed SUPPORT — EVIDENTIARY citing E17.",
+                      "Archivist",
+                      { supportClass: "EVIDENTIARY", evidenceRefs: ["E17"] },
                     )
                   }
                 />

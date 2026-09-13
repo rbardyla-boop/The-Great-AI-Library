@@ -3,7 +3,14 @@ import { evaluateValues } from "../values/evaluate.ts";
 import { profileByRole } from "../values/profiles.ts";
 import type { Dilemma, RoleId } from "../values/types.ts";
 import { conflictCost, experimentScore, majorityRec } from "../motive/cost.ts";
-import type { CandidateConnection, ConnectionReview, ReviewReport } from "./types.ts";
+import type {
+  CandidateConnection,
+  ConnectionReview,
+  ConnectionStatus,
+  LocalReviewPolicy,
+  ReviewObject,
+  ReviewReport,
+} from "./types.ts";
 
 export function promotionDilemma(connection: CandidateConnection): Dilemma {
   return {
@@ -101,7 +108,61 @@ export interface PromoteContext {
     origin: "local" | "external";
     originalHash: string;
     eventHash?: string;
+    supportClass?: string;
   }>;
+  reviews?: ReviewObject[];
+}
+
+export function isIndependentEvidence(connection: CandidateConnection, refs: string[]): boolean {
+  return refs.some((r) => r.length > 0 && !connection.evidenceRefs.includes(r));
+}
+
+/** Only SUPPORT — EVIDENTIARY with a new source contributes evidence. Opinion contributes zero. */
+export function evidentiaryContribution(connection: CandidateConnection, review: ReviewObject): boolean {
+  return (
+    review.kind === "SUPPORT" &&
+    review.supportClass === "EVIDENTIARY" &&
+    isIndependentEvidence(connection, review.evidenceRefs)
+  );
+}
+
+export function consideredEvidence(connection: CandidateConnection, reviews: ReviewObject[]): string[] {
+  const set = new Set(connection.evidenceRefs);
+  for (const r of reviews) {
+    if (evidentiaryContribution(connection, r)) {
+      for (const e of r.evidenceRefs) set.add(e);
+    }
+  }
+  return [...set];
+}
+
+/**
+ * Local projection. Never writes into the sealed artifact.
+ * conservative: challenge/falsify bind; never auto-SUPPORTED.
+ * evidentiary: independent evidence can mark a DIRECT as a working hypothesis.
+ */
+export function projectLocal(
+  connection: CandidateConnection,
+  reviews: ReviewObject[],
+  policy: LocalReviewPolicy = "conservative",
+): ConnectionStatus {
+  const mine = reviews.filter((r) => r.originalHash === connection.hash);
+  if (mine.some((r) => r.kind === "FALSIFY")) return "FALSIFIED";
+  const challenged = mine.some((r) => r.kind === "CHALLENGE");
+  const evid = mine.some((r) => evidentiaryContribution(connection, r));
+  if (policy === "evidentiary") {
+    if (evid && connection.type === "DIRECT") return "SUPPORTED";
+    if (challenged) return "CONTESTED";
+    return "HYPOTHESIS";
+  }
+  if (challenged) return "CONTESTED";
+  return "HYPOTHESIS";
+}
+
+export function policyVersion(policy: LocalReviewPolicy): string {
+  return policy === "evidentiary"
+    ? "gal-review-policy/evidentiary/1"
+    : "gal-review-policy/conservative/1";
 }
 
 export function mayPromote(
@@ -116,23 +177,18 @@ export function mayPromote(
   if (local === "FALSIFIED" || local === "CONTESTED") {
     return { allow: false, reason: `${local} hypotheses cannot be promoted.` };
   }
-  const localCited = ctx.lineage.filter(
-    (l) =>
-      l.originalHash === connection.hash &&
-      l.origin === "local" &&
-      (l.kind === "SUPPORT" || l.kind === "REVIEW"),
+  const reviews = ctx.reviews ?? [];
+  const evid = reviews.filter(
+    (r) => r.origin === "local" && evidentiaryContribution(connection, r),
   );
-  const citedOk =
-    ctx.citedReceipts.length > 0 &&
-    localCited.some((l) => !l.eventHash || ctx.citedReceipts.includes(l.eventHash));
-  if (!citedOk) {
+  if (evid.length === 0) {
     return {
       allow: false,
       reason:
-        "A score is not evidence. SUPPORTED requires cited local review or support receipts. External SUPPORT does not promote. Ten thousand agreements are not consensus.",
+        "A score is not evidence. Agreement does not accumulate into evidence. Opinion is not evidence. SUPPORTED requires cited local evidentiary reviews. External SUPPORT does not promote. Ten thousand agreements are not consensus.",
     };
   }
-  if (connection.type !== "DIRECT" || connection.evidenceRefs.length === 0) {
+  if (connection.type !== "DIRECT") {
     return {
       allow: false,
       reason: `${asFact.reason} ${connection.type} stays a hypothesis. A surprising connection is valuable because it can be tested, not because it sounds clever.`,
@@ -141,6 +197,6 @@ export function mayPromote(
   return {
     allow: true,
     reason:
-      "Desk may mark this DIRECT as a SUPPORTED working hypothesis citing receipts, not the strength score. Membrane still denies a truth field. The shared artifact stays HYPOTHESIS.",
+      "Desk may mark this DIRECT as a SUPPORTED working hypothesis citing evidentiary reviews, not opinion and not the strength score. Membrane still denies a truth field. The shared artifact stays HYPOTHESIS.",
   };
 }

@@ -6,17 +6,32 @@ import {
   DOTS_CHECKPOINT,
   DOTS_EVALUATOR,
   LOCAL_LIBRARY_ID,
+  SIGNATURE_SCHEME,
   connectionUri,
   hasTruthField,
   putConnectionObject,
   putLineageObject,
+  putReviewObject,
+  putReviewSetReceipt,
+  reviewUri,
+  unsignedReview,
 } from "./object.ts";
-import { mayPromote, type PromoteContext } from "./review.ts";
+import {
+  consideredEvidence,
+  evidentiaryContribution,
+  mayPromote,
+  policyVersion,
+  projectLocal,
+  type PromoteContext,
+} from "./review.ts";
 import type {
   CandidateConnection,
   ConnectionStatus,
   DiscoveryReport,
-  LineageKind,
+  LocalReviewPolicy,
+  ReviewKind,
+  ReviewObject,
+  SupportClass,
 } from "./types.ts";
 
 export const DOTS_LEDGER_COMMANDS = new Set([
@@ -29,6 +44,8 @@ export const DOTS_LEDGER_COMMANDS = new Set([
   "IMPORT_HYPOTHESIS",
   "REPLICATE",
   "REVIEW",
+  "REVIEW_SET",
+  "IMPORT_REVIEW",
 ]);
 
 export function dotsLedgerEvents(kernel: LibraryKernel): ChainEvent[] {
@@ -139,43 +156,65 @@ export async function fileReplicate(
 }
 
 interface ActionOpts {
-  command: Exclude<LineageKind, "REPLICATE"> | "KEEP_OPEN";
+  command: "CHALLENGE" | "SUPPORT" | "FALSIFY" | "REVIEW" | "KEEP_OPEN";
   connection: CandidateConnection;
   reason: string;
   actor?: "archivist" | "human";
   role?: string;
   origin?: "local" | "external";
   libraryId?: string;
+  supportClass?: SupportClass;
+  evidenceRefs?: string[];
+  counterevidenceRefs?: string[];
+}
+
+function reviewKindFor(command: ActionOpts["command"]): ReviewKind {
+  if (command === "KEEP_OPEN" || command === "REVIEW") return "REQUEST_EVIDENCE";
+  return command;
 }
 
 async function fileAction(kernel: LibraryKernel, args: ActionOpts): Promise<ChainEvent> {
   const originalHash = args.connection.hash;
   const uri = connectionUri(originalHash);
-  const seq = dotsLedgerEvents(kernel).length + 1;
-  const kind = (args.command === "KEEP_OPEN" ? "REVIEW" : args.command) as LineageKind;
   const origin = args.origin ?? "local";
-  const lineage = await putLineageObject(kernel.objects, {
+  const kind = reviewKindFor(args.command);
+  const supportClass =
+    kind === "SUPPORT" ? (args.supportClass ?? "OPINION") : args.supportClass;
+  const evidenceRefs = args.evidenceRefs ?? [];
+  const unsigned: Omit<ReviewObject, "hash"> = {
+    subject: uri,
     kind,
-    addresses: uri,
-    originalHash,
-    connectionId: args.connection.id,
+    supportClass,
+    reviewer: args.role ?? args.actor ?? "archivist",
+    reviewerValuesUri: CONNECTOR_URI,
+    reason: args.reason,
+    evidenceRefs,
+    counterevidenceRefs: args.counterevidenceRefs ?? [],
+    createdAt: new Date().toISOString(),
+    publisherIdentity: args.libraryId ?? LOCAL_LIBRARY_ID,
+    signatureScheme: SIGNATURE_SCHEME,
     origin,
     libraryId: args.libraryId ?? LOCAL_LIBRARY_ID,
-    reason: args.reason,
-    role: args.role,
-    at: new Date().toISOString(),
-    sequence: seq,
-  });
+    originalHash,
+    connectionId: args.connection.id,
+  };
+  const review = await putReviewObject(kernel.objects, unsigned);
+  const contributes =
+    kind === "SUPPORT" &&
+    supportClass === "EVIDENTIARY" &&
+    evidenceRefs.some((e) => !args.connection.evidenceRefs.includes(e));
   return kernel.command({
     actor: args.actor ?? "archivist",
     command: args.command,
-    summary: `${args.command} ${args.connection.id} addresses ${uri}. ${args.reason} Artifact ${originalHash.slice(0, 8)} unchanged.`,
+    summary: `${args.command} ${args.connection.id} addresses ${uri} as ${reviewUri(review.hash)}${kind === "SUPPORT" ? ` class=${supportClass}` : ""}. evidentiaryContribution=${contributes ? 1 : 0}. ${args.reason} Artifact ${originalHash.slice(0, 8)} unchanged. HMAC is integrity, not trust.`,
     payload: {
       connectionId: args.connection.id,
       originalReceipt: args.connection.ledgerReceipt ?? null,
       originalHash,
       uri,
-      lineageHash: lineage.hash,
+      reviewHash: review.hash,
+      reviewUri: reviewUri(review.hash),
+      lineageHash: review.hash,
       addresses: uri,
       origin,
       libraryId: args.libraryId ?? LOCAL_LIBRARY_ID,
@@ -187,9 +226,13 @@ async function fileAction(kernel: LibraryKernel, args: ActionOpts): Promise<Chai
       evidenceRoot: args.connection.evidenceRoot,
       role: args.role ?? null,
       reason: args.reason,
+      supportClass: supportClass ?? null,
+      evidenceRefs,
+      evidentiaryContribution: contributes ? 1 : 0,
+      signatureScheme: SIGNATURE_SCHEME,
     },
     input: [originalHash, args.connection.ledgerReceipt ?? originalHash],
-    output: [lineage.hash],
+    output: [review.hash],
     result: "ok",
   });
 }
@@ -216,7 +259,12 @@ export async function fileSupport(
   connection: CandidateConnection,
   reason: string,
   role?: string,
-  opts?: { origin?: "local" | "external"; libraryId?: string },
+  opts?: {
+    origin?: "local" | "external";
+    libraryId?: string;
+    supportClass?: SupportClass;
+    evidenceRefs?: string[];
+  },
 ): Promise<ChainEvent> {
   return fileAction(kernel, {
     command: "SUPPORT",
@@ -225,6 +273,8 @@ export async function fileSupport(
     role,
     origin: opts?.origin ?? "local",
     libraryId: opts?.libraryId,
+    supportClass: opts?.supportClass ?? "OPINION",
+    evidenceRefs: opts?.evidenceRefs ?? [],
   });
 }
 
@@ -265,8 +315,77 @@ export async function fileKeepOpen(
   return fileAction(kernel, {
     command: "KEEP_OPEN",
     connection,
-    reason: "Human kept the hypothesis open. Not a fact.",
+    reason: "Human kept the hypothesis open. Request evidence. Not a fact.",
     actor: "human",
+  });
+}
+
+export function parseReviewBytes(bytes: Uint8Array): ReviewObject | null {
+  try {
+    const parsed = JSON.parse(fromUtf8(bytes)) as ReviewObject;
+    if (!parsed || typeof parsed !== "object") return null;
+    if (!parsed.subject || !parsed.kind || !parsed.originalHash) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+export function reviewsFromLedger(kernel: LibraryKernel, originalHash?: string): ReviewObject[] {
+  const out: ReviewObject[] = [];
+  const seen = new Set<string>();
+  for (const ev of kernel.ledger.events) {
+    if (!DOTS_LEDGER_COMMANDS.has(ev.command)) continue;
+    const p = (ev.payload ?? {}) as { reviewHash?: string; lineageHash?: string; originalHash?: string };
+    const hash = String(p.reviewHash ?? p.lineageHash ?? "");
+    if (!hash || seen.has(hash)) continue;
+    const bytes = kernel.objects.get(hash);
+    if (!bytes) continue;
+    const review = parseReviewBytes(bytes);
+    if (!review) continue;
+    review.hash = hash;
+    if (originalHash && review.originalHash !== originalHash) continue;
+    seen.add(hash);
+    out.push(review);
+  }
+  return out;
+}
+
+export async function fileReplicateReview(
+  kernel: LibraryKernel,
+  review: ReviewObject,
+  opts?: { fromLibrary?: string },
+): Promise<ChainEvent> {
+  if (hasTruthField(review)) {
+    throw new Error("A review may not create facts.");
+  }
+  const unsigned = unsignedReview(review);
+  const put = await putReviewObject(kernel.objects, unsigned);
+  if (review.hash && put.hash !== review.hash) {
+    throw new Error(
+      `review hash ${put.hash.slice(0, 8)} !== object hash ${review.hash.slice(0, 8)}`,
+    );
+  }
+  return kernel.command({
+    actor: "human",
+    command: "IMPORT_REVIEW",
+    summary: `IMPORT_REVIEW ${reviewUri(put.hash)} addresses ${review.subject}. HAVE=${put.wrote ? "wrote" : "already"}. A review is not a fact. HMAC is integrity, not trust.`,
+    payload: {
+      reviewHash: put.hash,
+      reviewUri: reviewUri(put.hash),
+      lineageHash: put.hash,
+      originalHash: review.originalHash,
+      uri: review.subject,
+      kind: review.kind,
+      supportClass: review.supportClass ?? null,
+      evidentiaryContribution: 0,
+      fromLibrary: opts?.fromLibrary ?? null,
+      wrote: put.wrote,
+      signatureScheme: SIGNATURE_SCHEME,
+    },
+    input: [review.originalHash],
+    output: [put.hash],
+    result: "ok",
   });
 }
 
@@ -274,38 +393,91 @@ export function promoteContextFromKernel(
   kernel: LibraryKernel,
   connection: CandidateConnection,
 ): PromoteContext {
+  const reviews = reviewsFromLedger(kernel, connection.hash);
   const events = lineageFor(kernel, connection.hash);
   const lineage = events
     .filter((e) => e.command === "SUPPORT" || e.command === "REVIEW" || e.command === "CHALLENGE")
     .map((e) => {
-      const p = (e.payload ?? {}) as { origin?: string; originalHash?: string };
+      const p = (e.payload ?? {}) as { origin?: string; originalHash?: string; supportClass?: string };
       return {
         kind: e.command,
         origin: p.origin === "external" ? ("external" as const) : ("local" as const),
         originalHash: String(p.originalHash ?? connection.hash),
         eventHash: e.event_hash,
+        supportClass: p.supportClass,
       };
     });
-  const citedReceipts = lineage
-    .filter((l) => l.origin === "local" && (l.kind === "SUPPORT" || l.kind === "REVIEW"))
-    .map((l) => l.eventHash!)
-    .filter(Boolean);
-  return { citedReceipts, lineage };
+  const evid = reviews.filter((r) => r.origin === "local" && evidentiaryContribution(connection, r));
+  const citedReceipts = evid.map((r) => r.hash);
+  return { citedReceipts, lineage, reviews };
+}
+
+export async function fileReviewSetReceipt(
+  kernel: LibraryKernel,
+  connection: CandidateConnection,
+  args: {
+    policy: LocalReviewPolicy;
+    decision: ConnectionStatus | "DENIED";
+    reason: string;
+    valuesVersion?: string;
+  },
+): Promise<ChainEvent> {
+  const reviews = reviewsFromLedger(kernel, connection.hash);
+  const evidence = consideredEvidence(connection, reviews);
+  const unsigned = {
+    kind: "REVIEW_SET_RECEIPT" as const,
+    subjectHash: connection.hash,
+    subjectUri: connectionUri(connection.hash),
+    reviewHashes: reviews.map((r) => r.hash),
+    evidenceHashes: evidence,
+    valuesVersion: args.valuesVersion ?? CONNECTOR_URI,
+    policyVersion: policyVersion(args.policy),
+    decision: args.decision,
+    reason: args.reason,
+    timestamp: new Date().toISOString(),
+    libraryId: LOCAL_LIBRARY_ID,
+  };
+  const put = await putReviewSetReceipt(kernel.objects, unsigned);
+  return kernel.command({
+    actor: "archivist",
+    command: "REVIEW_SET",
+    summary: `REVIEW_SET ${connectionUri(connection.hash)} decision=${args.decision} policy=${policyVersion(args.policy)} reviews=${reviews.length} evidence=${evidence.length}. Why this Library concluded. Not a fact.`,
+    payload: {
+      receiptHash: put.hash,
+      originalHash: connection.hash,
+      uri: connectionUri(connection.hash),
+      reviewHashes: unsigned.reviewHashes,
+      evidenceHashes: evidence,
+      policyVersion: unsigned.policyVersion,
+      valuesVersion: unsigned.valuesVersion,
+      decision: args.decision,
+      reason: args.reason,
+    },
+    input: [connection.hash, ...unsigned.reviewHashes],
+    output: [put.hash],
+    result: "ok",
+  });
 }
 
 export async function filePromote(
   kernel: LibraryKernel,
   connection: CandidateConnection,
   ctx?: PromoteContext,
+  policy: LocalReviewPolicy = "conservative",
 ): Promise<ChainEvent> {
   const context = ctx ?? promoteContextFromKernel(kernel, connection);
   const gate = mayPromote(connection, context);
   const result = gate.allow ? "ok" : "denied";
+  await fileReviewSetReceipt(kernel, connection, {
+    policy,
+    decision: gate.allow ? "SUPPORTED" : "DENIED",
+    reason: gate.reason,
+  });
   return kernel.command({
     actor: gate.allow ? "human" : "policy",
     command: "PROMOTE",
     summary: gate.allow
-      ? `PROMOTE ${connection.id} local working hypothesis SUPPORTED citing ${context.citedReceipts.length} receipt(s). Shared artifact ${connection.hash.slice(0, 8)} stays HYPOTHESIS. Not a fact.`
+      ? `PROMOTE ${connection.id} local working hypothesis SUPPORTED citing ${context.citedReceipts.length} evidentiary review(s). Shared artifact ${connection.hash.slice(0, 8)} stays HYPOTHESIS. Not a fact.`
       : gate.reason,
     payload: {
       connectionId: connection.id,
@@ -323,6 +495,7 @@ export async function filePromote(
       valuesUri: CONNECTOR_URI,
       evidenceRoot: connection.evidenceRoot,
       reason: gate.reason,
+      policyVersion: policyVersion(policy),
     },
     input: [connection.hash, ...context.citedReceipts],
     result,
@@ -338,7 +511,10 @@ export function sealedBytesEqual(a: LibraryKernel, b: LibraryKernel, hash: strin
   return true;
 }
 
-export function connectionsFromLedger(kernel: LibraryKernel): CandidateConnection[] {
+export function connectionsFromLedger(
+  kernel: LibraryKernel,
+  policy: LocalReviewPolicy = "conservative",
+): CandidateConnection[] {
   const byHash = new Map<string, CandidateConnection>();
   for (const ev of kernel.ledger.events) {
     const p = (ev.payload ?? {}) as Record<string, unknown>;
@@ -352,23 +528,27 @@ export function connectionsFromLedger(kernel: LibraryKernel): CandidateConnectio
         parsed.hash = hash;
         parsed.ledgerReceipt = ev.event_hash;
         parsed.status = "HYPOTHESIS";
-        parsed.localStatus = parsed.localStatus ?? "HYPOTHESIS";
+        parsed.localStatus = "HYPOTHESIS";
         if (!byHash.has(hash)) byHash.set(hash, parsed);
       } catch {
         /* skip corrupt */
       }
     }
   }
-  for (const ev of kernel.ledger.events) {
-    if (!DOTS_LEDGER_COMMANDS.has(ev.command)) continue;
-    const p = (ev.payload ?? {}) as { originalHash?: string; hash?: string };
-    const hash = String(p.originalHash ?? p.hash ?? "");
-    const current = byHash.get(hash);
-    if (!current) continue;
-    if (ev.command === "CHALLENGE") current.localStatus = "CONTESTED";
-    if (ev.command === "FALSIFY") current.localStatus = "FALSIFIED";
-    if (ev.command === "PROMOTE" && ev.result === "ok") current.localStatus = "SUPPORTED";
-    current.status = "HYPOTHESIS";
+  for (const connection of byHash.values()) {
+    const reviews = reviewsFromLedger(kernel, connection.hash);
+    let local = projectLocal(connection, reviews, policy);
+    if (policy === "conservative") {
+      const promoted = kernel.ledger.events.some(
+        (e) =>
+          e.command === "PROMOTE" &&
+          e.result === "ok" &&
+          String((e.payload as { originalHash?: string }).originalHash ?? "") === connection.hash,
+      );
+      if (promoted && local === "HYPOTHESIS") local = "SUPPORTED";
+    }
+    connection.localStatus = local;
+    connection.status = "HYPOTHESIS";
   }
   return [...byHash.values()];
 }

@@ -78,5 +78,10 @@ export const CONSTITUTION = {
       title: "Network the evidence, not the agents",
       body: "Portable hypotheses travel as HYPOTHESIS objects with trusty URIs. Challenge, support, falsify, and replicate cite the artifact; they do not edit it. Ten thousand SUPPORT objects are not consensus. Two Libraries may disagree about the same hash. Strength is a ranking signal. SUPPORTED cites receipts. Nobody owns global truth.",
     },
+    {
+      id: "XVI",
+      title: "Network disagreement too",
+      body: "A review is evidence about a review. It is not evidence that the underlying hypothesis is true. Opinion does not accumulate into evidence. Independent evidence does. Consensus is optional; provenance is not. Two Libraries may ingest the same objects and legally reach different local conclusions. HMAC here means the bytes have not changed relative to a demo publisher. It does not mean the reviewer is trustworthy.",
+    },
   ],
 } as const;

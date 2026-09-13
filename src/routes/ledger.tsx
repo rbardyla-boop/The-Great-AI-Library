@@ -60,9 +60,9 @@ function LedgerPage() {
         <section className="rounded-lg bg-surface p-5 shadow-[0_0_0_1px_rgba(255,255,255,0.08)]">
           <p className="font-display text-xl">Discovery receipts</p>
           <p className="mt-1 max-w-xl text-sm text-muted">
-            CONNECT files a hypothesis. CHALLENGE, SUPPORT, FALSIFY, REPLICATE, and PROMOTE
-            cite the gal:// URI. Nobody edits the artifact. Ten thousand SUPPORT objects are
-            not consensus. There is no truth field.
+            CONNECT files a hypothesis. Reviews travel as gal://review objects. SUPPORT splits
+            into OPINION and EVIDENTIARY. Opinion contributes zero. A REVIEW_SET receipt records
+            exactly what this Library considered. HMAC is integrity, not trust.
           </p>
           <ol className="mt-4 space-y-3">
             {dotsEvents.slice(0, 24).map((ev) => {
@@ -266,6 +266,15 @@ function PayloadLine({ command, payload }: { command: string; payload: Record<st
       </p>
     );
   }
+  if (command === "REVIEW_SET" || command === "IMPORT_REVIEW") {
+    return (
+      <p className="mt-1 break-all font-mono text-[11px] text-faint">
+        {str(payload.reviewUri) || str(payload.uri)} · policy {str(payload.policyVersion)} ·
+        decision {str(payload.decision)} · reviews {String((payload.reviewHashes as unknown[] | undefined)?.length ?? "")}{" "}
+        · {str(payload.kind) || str(payload.supportClass)}
+      </p>
+    );
+  }
   if (
     command === "CHALLENGE" ||
     command === "SUPPORT" ||
@@ -276,10 +285,9 @@ function PayloadLine({ command, payload }: { command: string; payload: Record<st
   ) {
     return (
       <p className="mt-1 break-all font-mono text-[11px] text-faint">
-        {str(payload.uri) || str(payload.addresses)} · origin {str(payload.origin) || "local"} ·
-        local {str(payload.status) || str(payload.fromStatus) || "—"} · artifact{" "}
-        {str(payload.artifactStatus) || "HYPOTHESIS"} · original{" "}
-        <HashStamp hash={str(payload.originalHash) || str(payload.originalReceipt)} />
+        {str(payload.reviewUri) || str(payload.uri) || str(payload.addresses)} ·{" "}
+        {str(payload.supportClass) || "—"} · contribution {String(payload.evidentiaryContribution ?? 0)} ·
+        original <HashStamp hash={str(payload.originalHash) || str(payload.originalReceipt)} />
       </p>
     );
   }

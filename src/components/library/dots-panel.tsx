@@ -17,12 +17,14 @@ export function DotsPanel({ query }: { query?: string }) {
   const promote = useDots((s) => s.promote);
   const keepOpen = useDots((s) => s.keepOpen);
   const importCard = useDots((s) => s.importCard);
+  const policy = useDots((s) => s.policy);
+  const setPolicy = useDots((s) => s.setPolicy);
   const tick = useLibrary((s) => s.tick);
   const [busy, setBusy] = useState(false);
   const [paste, setPaste] = useState("");
   void tick;
-  const connections = (connectionsFromLedger(kernel).length
-    ? connectionsFromLedger(kernel)
+  const connections = (connectionsFromLedger(kernel, policy).length
+    ? connectionsFromLedger(kernel, policy)
     : lastReport?.connections ?? []
   )
     .slice()
@@ -35,12 +37,26 @@ export function DotsPanel({ query }: { query?: string }) {
     <section className="space-y-5">
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="font-display text-xl">DOTS-1 — Network without consensus</p>
+          <p className="font-display text-xl">DOTS-2 — Distributed review without shared authority</p>
           <p className="mt-1 max-w-xl text-sm leading-relaxed text-muted">
-            Portable hypotheses travel as HYPOTHESIS. Challenge, support, falsify, and replicate cite
-            the hash. Ten thousand agreements are not a fact. Strength ranks. It does not prove.
+            A review is evidence about a review. It is not evidence that the hypothesis is true.
+            Opinion does not accumulate into evidence. Independent evidence does. Consensus is
+            optional. Provenance is not.
           </p>
         </div>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant={policy === "conservative" ? "secondary" : "ghost"}
+            onClick={() => setPolicy("conservative")}
+          >
+            Conservative policy
+          </Button>
+          <Button
+            variant={policy === "evidentiary" ? "secondary" : "ghost"}
+            onClick={() => setPolicy("evidentiary")}
+          >
+            Evidentiary policy
+          </Button>
         <Button
           variant="secondary"
           disabled={busy}
@@ -52,6 +68,7 @@ export function DotsPanel({ query }: { query?: string }) {
         >
           {busy ? "Searching…" : "Run Connect-the-Dots"}
         </Button>
+        </div>
       </div>
       {lastReport ? (
         <p className="font-mono text-[11px] text-faint">
@@ -79,8 +96,17 @@ export function DotsPanel({ query }: { query?: string }) {
                 onSupport={() =>
                   void support(
                     c.id,
-                    "Local support. Ranking is not evidence. This is a receipt, not consensus.",
+                    "SUPPORT — OPINION. I think this connection is compelling. Not evidence.",
                     "Archivist",
+                    { supportClass: "OPINION" },
+                  )
+                }
+                onEvidence={() =>
+                  void support(
+                    c.id,
+                    "SUPPORT — EVIDENTIARY. Independent source E17 bears on this connection.",
+                    "Archivist",
+                    { supportClass: "EVIDENTIARY", evidenceRefs: ["E17"] },
                   )
                 }
                 onFalsify={() =>
@@ -99,16 +125,17 @@ export function DotsPanel({ query }: { query?: string }) {
         </p>
       )}
       <div className="rounded-lg bg-elevated p-4 shadow-[0_0_0_1px_rgba(255,255,255,0.08)]">
-        <p className="font-display text-lg">Import a hypothesis envelope</p>
+        <p className="font-display text-lg">Import a hypothesis or review</p>
         <p className="mt-1 text-sm text-muted">
-          Stranger import is REPLICATE. Same bytes, local conclusion empty. Ten thousand SUPPORT
-          objects still do not promote. A live agent mesh is not this page.
+          Stranger import verifies the hash. A review does not change the hypothesis. HMAC means
+          the bytes did not change relative to a demo publisher — not that the reviewer is
+          trustworthy. A live agent mesh is not this page.
         </p>
         <textarea
           value={paste}
           onChange={(e) => setPaste(e.target.value)}
           rows={4}
-          placeholder='{"protocol":"gal-dots/1","uri":"gal://connection/sha256:…"}'
+          placeholder='{"protocol":"gal-dots/2","uri":"gal://review/sha256:…"}'
           className="mt-3 w-full rounded-md bg-surface px-3 py-2 font-mono text-[11px] text-fg shadow-[0_0_0_1px_rgba(255,255,255,0.08)] placeholder:text-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70"
         />
         <Button
@@ -121,7 +148,7 @@ export function DotsPanel({ query }: { query?: string }) {
             setPaste("");
           }}
         >
-          Import as hypothesis
+          Import object
         </Button>
       </div>
     </section>

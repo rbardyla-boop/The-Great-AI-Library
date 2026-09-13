@@ -1,15 +1,22 @@
 import { canonicalJson, objectPath, sha256Text, utf8 } from "../kernel/crypto.ts";
 import type { ContentAddressedStore } from "../kernel/objects.ts";
-import type { CandidateConnection, LineageObject } from "./types.ts";
+import type { CandidateConnection, LineageObject, ReviewObject, ReviewSetReceipt } from "./types.ts";
 
 export const DOTS_EVALUATOR = "gal-dots-eval/1.0";
 export const DOTS_CHECKPOINT = "openhive-dots-0";
 export const CONNECTOR_URI = "values://open-hive/connector/1.0.0";
 export const LOCAL_LIBRARY_ID = "gal-local";
+export const SIGNATURE_SCHEME = "hmac-sha256-demo" as const;
+export const POLICY_CONSERVATIVE = "gal-review-policy/conservative/1";
+export const POLICY_EVIDENTIARY = "gal-review-policy/evidentiary/1";
 
 /** Trusty URI: the identifier embeds the CAS hash. */
 export function connectionUri(hash: string): string {
   return `gal://connection/sha256:${hash}`;
+}
+
+export function reviewUri(hash: string): string {
+  return `gal://review/sha256:${hash}`;
 }
 
 /** Never include a truth field. Never include localStatus. The hash is of this unsigned object. */
@@ -90,6 +97,53 @@ export async function putLineageObject(
   lineage: Omit<LineageObject, "hash">,
 ): Promise<{ hash: string; path: string; wrote: boolean }> {
   const put = await objects.put(utf8(canonicalJson(lineage)));
+  return { hash: put.hash, path: objectPath(put.hash), wrote: put.wrote };
+}
+
+export function unsignedReview(review: ReviewObject): Omit<ReviewObject, "hash"> {
+  return {
+    subject: review.subject,
+    kind: review.kind,
+    supportClass: review.supportClass,
+    reviewer: review.reviewer,
+    reviewerValuesUri: review.reviewerValuesUri,
+    reason: review.reason,
+    evidenceRefs: review.evidenceRefs,
+    counterevidenceRefs: review.counterevidenceRefs,
+    createdAt: review.createdAt,
+    publisherIdentity: review.publisherIdentity,
+    signatureScheme: review.signatureScheme,
+    origin: review.origin,
+    libraryId: review.libraryId,
+    originalHash: review.originalHash,
+    connectionId: review.connectionId,
+  };
+}
+
+export function reviewCanonical(review: ReviewObject): string {
+  return canonicalJson(unsignedReview(review));
+}
+
+export async function hashReview(review: Omit<ReviewObject, "hash">): Promise<string> {
+  return sha256Text(canonicalJson(review));
+}
+
+export async function putReviewObject(
+  objects: ContentAddressedStore,
+  review: Omit<ReviewObject, "hash">,
+): Promise<{ hash: string; path: string; wrote: boolean }> {
+  if ("truth" in review) {
+    throw new Error("A review may not create facts. truth is forbidden.");
+  }
+  const put = await objects.put(utf8(canonicalJson(review)));
+  return { hash: put.hash, path: objectPath(put.hash), wrote: put.wrote };
+}
+
+export async function putReviewSetReceipt(
+  objects: ContentAddressedStore,
+  receipt: Omit<ReviewSetReceipt, "hash">,
+): Promise<{ hash: string; path: string; wrote: boolean }> {
+  const put = await objects.put(utf8(canonicalJson(receipt)));
   return { hash: put.hash, path: objectPath(put.hash), wrote: put.wrote };
 }
 

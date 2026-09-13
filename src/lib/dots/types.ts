@@ -135,3 +135,78 @@ export interface HypothesisEnvelope {
   signature: string;
   native: Omit<CandidateConnection, "hash" | "ledgerReceipt" | "localStatus"> & { hash: string };
 }
+
+export type ReviewKind = "SUPPORT" | "CHALLENGE" | "FALSIFY" | "REPLICATE" | "REQUEST_EVIDENCE";
+
+export type SupportClass = "OPINION" | "EVIDENTIARY";
+
+export type LocalReviewPolicy = "conservative" | "evidentiary";
+
+/** A review is evidence about a review. It is not evidence that the hypothesis is true. */
+export interface ReviewObject {
+  subject: string;
+  kind: ReviewKind;
+  supportClass?: SupportClass;
+  reviewer: string;
+  reviewerValuesUri: string;
+  reason: string;
+  evidenceRefs: string[];
+  counterevidenceRefs: string[];
+  createdAt: string;
+  publisherIdentity: string;
+  signatureScheme: "hmac-sha256-demo";
+  origin: "local" | "external";
+  libraryId: string;
+  originalHash: string;
+  connectionId: string;
+  hash: string;
+}
+
+export interface ReviewEnvelope {
+  protocol: "gal-dots/2";
+  uri: string;
+  assertion: {
+    subject: string;
+    kind: ReviewKind;
+    supportClass?: SupportClass;
+    reason: string;
+    evidenceRefs: string[];
+    counterevidenceRefs: string[];
+    statement: string;
+  };
+  provenance: {
+    reviewer: string;
+    reviewerValuesUri: string;
+    origin: "local" | "external";
+    libraryId: string;
+    createdAt: string;
+    originalHash: string;
+  };
+  publication: {
+    creator: string;
+    objectHash: string;
+    uri: string;
+    signatureScheme: "hmac-sha256-demo";
+    protocol: "gal-dots/2";
+    integrityNotTrust: true;
+  };
+  signature: string;
+  native: Omit<ReviewObject, "hash"> & { hash: string };
+}
+
+/** Exact answer to “why did this Library mark H17 CONTESTED?” */
+export interface ReviewSetReceipt {
+  kind: "REVIEW_SET_RECEIPT";
+  subjectHash: string;
+  subjectUri: string;
+  reviewHashes: string[];
+  evidenceHashes: string[];
+  valuesVersion: string;
+  policyVersion: string;
+  decision: ConnectionStatus | "DENIED";
+  reason: string;
+  timestamp: string;
+  libraryId: string;
+  hash: string;
+}
+

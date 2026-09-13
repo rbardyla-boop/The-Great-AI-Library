@@ -4,7 +4,7 @@ import { pageHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/constitution")({
   head: () =>
-    pageHead("Constitution", "Fifteen articles. Laws before chat. VALUES recommend. The membrane authorizes."),
+    pageHead("Constitution", "Sixteen articles. Laws before chat. VALUES recommend. The membrane authorizes."),
   component: ConstitutionPage,
 });
 
@@ -19,7 +19,7 @@ function ConstitutionPage() {
           Laws before chat.
         </h1>
         <p className="mt-3 text-sm text-muted">
-          Enacted {CONSTITUTION.enacted}. Articles XIV–XV amended {CONSTITUTION.amended}.
+          Enacted {CONSTITUTION.enacted}. Articles XIV–XVI amended {CONSTITUTION.amended}.
         </p>
       </header>
       <ol className="space-y-8">

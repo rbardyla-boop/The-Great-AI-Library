@@ -2,9 +2,10 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { HashStamp } from "@/components/library/hash-stamp";
-import { exportEnvelope } from "@/lib/dots/exhibit";
-import { connectionUri } from "@/lib/dots/object";
-import { lineageFor } from "@/lib/dots/registry";
+import { exportEnvelope, exportReviewEnvelope } from "@/lib/dots/exhibit";
+import { connectionUri, reviewUri } from "@/lib/dots/object";
+import { reviewsFromLedger } from "@/lib/dots/registry";
+import { evidentiaryContribution } from "@/lib/dots/review";
 import type { CandidateConnection, ConnectionReview } from "@/lib/dots/types";
 import { kernel } from "@/lib/library/store";
 import { cn } from "@/lib/cn";
@@ -42,6 +43,7 @@ export function ConnectionCard({
   onKeepOpen,
   onSupport,
   onFalsify,
+  onEvidence,
 }: {
   connection: CandidateConnection;
   reviews?: ConnectionReview[];
@@ -51,17 +53,16 @@ export function ConnectionCard({
   onKeepOpen?: () => void;
   onSupport?: () => void;
   onFalsify?: () => void;
+  onEvidence?: () => void;
 }) {
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<"envelope" | "review" | null>(null);
   const scores = connection.scores;
   const sealed = connection.status;
   const local = connection.localStatus ?? connection.status;
   const uri = connectionUri(connection.hash);
-  const cited = lineageFor(kernel, connection.hash).filter((e) =>
-    ["CHALLENGE", "SUPPORT", "FALSIFY", "REPLICATE", "REVIEW", "KEEP_OPEN", "PROMOTE"].includes(
-      e.command,
-    ),
-  );
+  const filed = reviewsFromLedger(kernel, connection.hash);
+  const opinions = filed.filter((r) => r.kind === "SUPPORT" && r.supportClass !== "EVIDENTIARY");
+  const evid = filed.filter((r) => evidentiaryContribution(connection, r));
 
   return (
     <article className="rounded-lg bg-surface p-5 shadow-[0_0_0_1px_rgba(255,255,255,0.08)]">
@@ -105,11 +106,12 @@ export function ConnectionCard({
         <Score label="Falsifiability" value={scores.falsifiability} />
       </div>
       <p className="mt-2 font-mono text-[11px] text-faint">
-        Scores rank. They are not evidence. SUPPORTED cites receipts.
+        Scores rank. They are not evidence. Opinion is not evidence. SUPPORTED cites evidentiary reviews.
       </p>
-      {cited.length > 0 ? (
+      {filed.length > 0 ? (
         <p className="mt-2 font-mono text-[11px] text-muted">
-          {cited.length} lineage object{cited.length === 1 ? "" : "s"} cite this hash. Nobody edited it.
+          {opinions.length} opinion{opinions.length === 1 ? "" : "s"} · {evid.length} new evidence ·{" "}
+          {filed.length} review object{filed.length === 1 ? "" : "s"} cite this hash. Nobody edited it.
         </p>
       ) : null}
       <p className="mt-4 text-sm text-muted">
@@ -143,7 +145,12 @@ export function ConnectionCard({
         ) : null}
         {onSupport ? (
           <Button size="sm" variant="ghost" onClick={onSupport}>
-            File support
+            File opinion
+          </Button>
+        ) : null}
+        {onEvidence ? (
+          <Button size="sm" variant="ghost" onClick={onEvidence}>
+            File evidence
           </Button>
         ) : null}
         {onFalsify ? (
@@ -167,13 +174,39 @@ export function ConnectionCard({
           onClick={async () => {
             const text = await exportEnvelope(connection);
             await navigator.clipboard.writeText(text);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 1500);
+            setCopied("envelope");
+            setTimeout(() => setCopied(null), 1500);
           }}
         >
-          {copied ? "Envelope copied" : "Export envelope"}
+          {copied === "envelope" ? "Envelope copied" : "Export envelope"}
         </Button>
+        {filed[0] ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={async () => {
+              const text = await exportReviewEnvelope(filed[0]!);
+              await navigator.clipboard.writeText(text);
+              setCopied("review");
+              setTimeout(() => setCopied(null), 1500);
+            }}
+          >
+            {copied === "review" ? "Review copied" : "Export review"}
+          </Button>
+        ) : null}
       </div>
+      {filed.length > 0 ? (
+        <ul className="mt-4 space-y-2 border-t border-border pt-4">
+          {filed.slice(0, 8).map((r) => (
+            <li key={r.hash} className="font-mono text-[11px] text-muted">
+              <span className="text-fg">{r.kind}</span>
+              {r.supportClass ? ` · ${r.supportClass}` : ""} · contribution{" "}
+              {evidentiaryContribution(connection, r) ? "1" : "0"} · {reviewUri(r.hash)}
+              <span className="mt-1 block text-[11px] leading-relaxed text-faint">{r.reason}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
       {reviews && reviews.length > 0 ? (
         <ul className="mt-4 space-y-2 border-t border-border pt-4">
           {reviews.map((r) => (

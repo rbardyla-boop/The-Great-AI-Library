@@ -7,7 +7,7 @@ import { dilemmaById } from "../motive/dilemmas.ts";
 import { ensureValuesInstalled, evidenceRoot } from "../values/registry.ts";
 import { profileByRole } from "../values/profiles.ts";
 import { discoverConnections, farPairs, lexicalOverlap, mercuryView } from "./discover.ts";
-import { exportCard, exportEnvelope, parseCard } from "./exhibit.ts";
+import { exportCard, exportEnvelope, exportReviewEnvelope, parseCard, parseReview } from "./exhibit.ts";
 import { connectionUri, hasTruthField, unsignedConnection } from "./object.ts";
 import {
   connectionsFromLedger,
@@ -17,11 +17,15 @@ import {
   fileFalsify,
   filePromote,
   fileReplicate,
+  fileReplicateReview,
+  fileReviewSetReceipt,
   fileSupport,
   lineageFor,
+  parseReviewBytes,
+  reviewsFromLedger,
   sealedBytesEqual,
 } from "./registry.ts";
-import { mayPromote, reviewConnection } from "./review.ts";
+import { consideredEvidence, mayPromote, projectLocal, reviewConnection } from "./review.ts";
 
 describe("DOTS-0", () => {
   it("CONNECTOR is not a MOTIVE-0 seat", async () => {
@@ -303,12 +307,23 @@ describe("DOTS-1", () => {
     await fileConnect(k, direct);
     const denied = await filePromote(k, direct);
     assert.equal(denied.result, "denied");
-    const support = await fileSupport(k, direct, "Primary catalog edge, independently sourced.", "Archivist");
-    const allowed = mayPromote(direct, {
-      citedReceipts: [support.event_hash],
+    const opinion = await fileSupport(k, direct, "I find this compelling.", "Archivist");
+    const still = mayPromote(direct, {
+      citedReceipts: [opinion.event_hash],
       lineage: [
-        { kind: "SUPPORT", origin: "local", originalHash: direct.hash, eventHash: support.event_hash },
+        { kind: "SUPPORT", origin: "local", originalHash: direct.hash, eventHash: opinion.event_hash },
       ],
+    });
+    assert.equal(still.allow, false);
+    const evid = await fileSupport(k, direct, "Independent source E17.", "Archivist", {
+      supportClass: "EVIDENTIARY",
+      evidenceRefs: ["E17"],
+    });
+    void evid;
+    const allowed = mayPromote(direct, {
+      citedReceipts: [],
+      lineage: [],
+      reviews: reviewsFromLedger(k, direct.hash),
     });
     assert.equal(allowed.allow, true);
     const promoted = await filePromote(k, direct);
@@ -334,5 +349,138 @@ describe("DOTS-1", () => {
     obj.native.proposedRelation = "silently rewritten";
     const drifted = await parseCard(JSON.stringify(obj));
     assert.equal(drifted.ok, false);
+  });
+});
+
+describe("DOTS-2", () => {
+  it("REVIEW-ROUNDTRIP: export/import a review and preserve the identical review hash", async () => {
+    const profile = await profileByRole("connector", "1.0.0");
+    const report = await discoverConnections({ evidenceRoot: "root", profile });
+    const analogy = report.connections.find((c) => c.type === "ANALOGY")!;
+    const a = new LibraryKernel();
+    await fileConnect(a, analogy);
+    const filed = await fileSupport(a, analogy, "I think this is compelling.", "Skeptic", {
+      supportClass: "OPINION",
+    });
+    const hash = String((filed.payload as { reviewHash: string }).reviewHash);
+    const review = parseReviewBytes(a.objects.get(hash)!)!;
+    review.hash = hash;
+    const envelope = await exportReviewEnvelope(review, "library-a");
+    const parsed = await parseReview(envelope);
+    assert.equal(parsed.ok, true);
+    if (!parsed.ok) return;
+    assert.equal(parsed.review.hash, hash);
+    assert.equal(parsed.review.supportClass, "OPINION");
+    assert.equal("truth" in parsed.review, false);
+    const b = new LibraryKernel();
+    await fileReplicateReview(b, parsed.review, { fromLibrary: "library-a" });
+    assert.equal(sealedBytesEqual(a, b, hash), true);
+    assert.match(JSON.parse(envelope).uri, /^gal:\/\/review\/sha256:[0-9a-f]{64}$/);
+  });
+
+  it("NO-VOTE-TRUTH: 1,000 SUPPORT — OPINION reviews cannot alter epistemic status", async () => {
+    const k = new LibraryKernel();
+    const profile = await profileByRole("connector", "1.0.0");
+    const report = await discoverConnections({ evidenceRoot: "root", profile });
+    const analogy = report.connections.find((c) => c.type === "ANALOGY")!;
+    await fileConnect(k, analogy);
+    for (let i = 0; i < 1000; i++) {
+      await fileSupport(k, analogy, `opinion ${i}`, "peer", {
+        origin: "external",
+        libraryId: `sybil-${i}`,
+        supportClass: "OPINION",
+      });
+    }
+    const reviews = reviewsFromLedger(k, analogy.hash);
+    assert.equal(reviews.length, 1000);
+    assert.equal(
+      reviews.filter((r) => r.supportClass === "OPINION").length,
+      1000,
+    );
+    assert.equal(projectLocal(analogy, reviews, "conservative"), "HYPOTHESIS");
+    assert.equal(projectLocal(analogy, reviews, "evidentiary"), "HYPOTHESIS");
+    const live = connectionsFromLedger(k).find((c) => c.hash === analogy.hash)!;
+    assert.equal(live.status, "HYPOTHESIS");
+    assert.notEqual(live.localStatus, "SUPPORTED");
+    const promoted = await filePromote(k, live);
+    assert.equal(promoted.result, "denied");
+    assert.match(String((promoted.payload as { reason?: string }).reason), /opinion is not evidence/i);
+    const sealed = JSON.parse(new TextDecoder().decode(k.objects.get(analogy.hash)!)) as {
+      status: string;
+      evidenceRefs?: string[];
+    };
+    assert.equal(sealed.status, "HYPOTHESIS");
+  });
+
+  it("EVIDENCE-DELTA: an evidentiary review adds a source without altering the hypothesis", async () => {
+    const k = new LibraryKernel();
+    const profile = await profileByRole("connector", "1.0.0");
+    const report = await discoverConnections({ evidenceRoot: "root", profile });
+    const direct = report.connections.find((c) => c.type === "DIRECT")!;
+    await fileConnect(k, direct);
+    const before = k.objects.get(direct.hash)!;
+    assert.equal(direct.evidenceRefs.includes("E17"), false);
+    await fileSupport(k, direct, "Independent source E17 bears on this connection.", "Archivist", {
+      supportClass: "EVIDENTIARY",
+      evidenceRefs: ["E17"],
+    });
+    const after = k.objects.get(direct.hash)!;
+    assert.equal(before.length, after.length);
+    for (let i = 0; i < before.length; i++) assert.equal(before[i], after[i]);
+    const reviews = reviewsFromLedger(k, direct.hash);
+    assert.equal(reviews.length, 1);
+    assert.deepEqual(reviews[0]!.evidenceRefs, ["E17"]);
+    const sealed = JSON.parse(new TextDecoder().decode(after)) as { evidenceRefs: string[] };
+    assert.equal(sealed.evidenceRefs.includes("E17"), false);
+    const considered = consideredEvidence(direct, reviews);
+    assert.ok(considered.includes("E17"));
+    const live = connectionsFromLedger(k).find((c) => c.hash === direct.hash)!;
+    assert.equal(live.status, "HYPOTHESIS");
+    assert.equal(live.localStatus, "HYPOTHESIS");
+  });
+
+  it("LOCAL-FORK: identical objects, different policy, different local conclusions", async () => {
+    const profile = await profileByRole("connector", "1.0.0");
+    const report = await discoverConnections({ evidenceRoot: "root", profile });
+    const direct = report.connections.find((c) => c.type === "DIRECT")!;
+    const a = new LibraryKernel();
+    const b = new LibraryKernel();
+    await fileConnect(a, direct);
+    const env = await exportEnvelope(direct, "library-a");
+    const parsed = await parseCard(env);
+    assert.equal(parsed.ok, true);
+    if (!parsed.ok) return;
+    await fileReplicate(b, parsed.connection, { fromLibrary: "library-a" });
+    await fileSupport(a, direct, "Independent source E17.", "Archivist", {
+      supportClass: "EVIDENTIARY",
+      evidenceRefs: ["E17"],
+    });
+    await fileChallenge(a, direct, "The edge may be catalog restatement.", "Skeptic");
+    for (const r of reviewsFromLedger(a, direct.hash)) {
+      const card = await exportReviewEnvelope(r, "library-a");
+      const got = await parseReview(card);
+      assert.equal(got.ok, true);
+      if (!got.ok) continue;
+      await fileReplicateReview(b, got.review, { fromLibrary: "library-a" });
+    }
+    assert.equal(sealedBytesEqual(a, b, direct.hash), true);
+    const left = connectionsFromLedger(a, "conservative").find((c) => c.hash === direct.hash)!;
+    const right = connectionsFromLedger(b, "evidentiary").find((c) => c.hash === direct.hash)!;
+    assert.equal(left.status, "HYPOTHESIS");
+    assert.equal(right.status, "HYPOTHESIS");
+    assert.equal(left.localStatus, "CONTESTED");
+    assert.equal(right.localStatus, "SUPPORTED");
+    await fileReviewSetReceipt(a, left, {
+      policy: "conservative",
+      decision: "CONTESTED",
+      reason: "Challenge binds under conservative policy.",
+    });
+    await fileReviewSetReceipt(b, right, {
+      policy: "evidentiary",
+      decision: "SUPPORTED",
+      reason: "Independent evidence E17 under evidentiary policy. Not a fact.",
+    });
+    assert.ok(a.ledger.events.some((e) => e.command === "REVIEW_SET"));
+    assert.ok(b.ledger.events.some((e) => e.command === "REVIEW_SET"));
   });
 });

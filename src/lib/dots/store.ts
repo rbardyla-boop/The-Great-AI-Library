@@ -4,7 +4,7 @@ import { kernel, refreshLibrary } from "@/lib/library/store";
 import { evidenceRoot } from "@/lib/values/registry";
 import { profileByRole } from "@/lib/values/profiles";
 import { discoverConnections, mercuryView } from "./discover";
-import { parseCard } from "./exhibit";
+import { parseEnvelope } from "./exhibit";
 import { connectionUri } from "./object";
 import {
   connectionsFromLedger,
@@ -14,20 +14,28 @@ import {
   fileKeepOpen,
   filePromote,
   fileReplicate,
+  fileReplicateReview,
   fileReviewReceipt,
   fileSupport,
 } from "./registry";
 import { reviewConnection } from "./review";
-import type { CandidateConnection, DiscoveryReport, ReviewReport } from "./types";
+import type { CandidateConnection, DiscoveryReport, LocalReviewPolicy, ReviewReport } from "./types";
 
 interface DotsState {
   lastReport: DiscoveryReport | null;
   reviews: Record<string, ReviewReport>;
   notice: string | null;
+  policy: LocalReviewPolicy;
+  setPolicy: (policy: LocalReviewPolicy) => void;
   runDiscovery: (query?: string) => Promise<DiscoveryReport>;
   review: (id: string) => Promise<ReviewReport | null>;
   challenge: (id: string, reason: string, role?: string) => Promise<void>;
-  support: (id: string, reason: string, role?: string) => Promise<void>;
+  support: (
+    id: string,
+    reason: string,
+    role?: string,
+    opts?: { supportClass?: "OPINION" | "EVIDENTIARY"; evidenceRefs?: string[] },
+  ) => Promise<void>;
   falsify: (id: string, reason: string) => Promise<void>;
   keepOpen: (id: string) => Promise<void>;
   promote: (id: string) => Promise<{ ok: boolean; reason: string }>;
@@ -36,7 +44,7 @@ interface DotsState {
 }
 
 function listed(): CandidateConnection[] {
-  const fromLedger = connectionsFromLedger(kernel);
+  const fromLedger = connectionsFromLedger(kernel, useDots.getState().policy);
   if (fromLedger.length) return fromLedger;
   return useDots.getState().lastReport?.connections ?? [];
 }
@@ -51,6 +59,17 @@ export const useDots = create<DotsState>()(
       lastReport: null,
       reviews: {},
       notice: null,
+      policy: "conservative",
+      setPolicy: (policy) => {
+        set({
+          policy,
+          notice:
+            policy === "evidentiary"
+              ? "This library: evidentiary policy. Independent evidence can mark a DIRECT as a local working hypothesis. HMAC is not trust."
+              : "This library: conservative policy. Challenge binds. Opinion never promotes. HMAC is not trust.",
+        });
+        refreshLibrary();
+      },
       runDiscovery: async (query) => {
         const root = await evidenceRoot(kernel);
         const profile = await profileByRole("connector", "1.0.0");
@@ -104,12 +123,16 @@ export const useDots = create<DotsState>()(
         }
         refreshLibrary();
       },
-      support: async (id, reason, role) => {
+      support: async (id, reason, role, opts) => {
         const connection = byId(id);
         if (!connection) return;
-        await fileSupport(kernel, connection, reason, role);
+        const ev = await fileSupport(kernel, connection, reason, role, opts);
+        const klass = opts?.supportClass ?? "OPINION";
         set({
-          notice: `SUPPORT filed against ${connectionUri(connection.hash)}. Artifact unchanged. Not consensus.`,
+          notice:
+            klass === "EVIDENTIARY"
+              ? `SUPPORT — EVIDENTIARY filed. Independent evidence, not a vote. Artifact unchanged. ${(ev.payload as { reviewUri?: string }).reviewUri ?? ""}`
+              : `SUPPORT — OPINION filed. Agreement does not accumulate into evidence. Artifact unchanged.`,
         });
         refreshLibrary();
       },
@@ -139,7 +162,7 @@ export const useDots = create<DotsState>()(
       promote: async (id) => {
         const connection = byId(id);
         if (!connection) return { ok: false, reason: "Unknown connection." };
-        const ev = await filePromote(kernel, connection);
+        const ev = await filePromote(kernel, connection, undefined, get().policy);
         const ok = ev.result === "ok";
         if (ok && get().lastReport) {
           set({
@@ -158,8 +181,14 @@ export const useDots = create<DotsState>()(
         return { ok, reason: ev.summary };
       },
       importCard: async (text) => {
-        const parsed = await parseCard(text);
+        const parsed = await parseEnvelope(text);
         if (!parsed.ok) return parsed;
+        if (parsed.type === "review") {
+          const ev = await fileReplicateReview(kernel, parsed.review);
+          set({ notice: ev.summary });
+          refreshLibrary();
+          return { ok: true, reason: ev.summary };
+        }
         const ev = await fileReplicate(kernel, parsed.connection);
         const report = get().lastReport;
         set({
@@ -181,6 +210,6 @@ export const useDots = create<DotsState>()(
       },
       hydrate: () => listed(),
     }),
-    { name: "gal-dots-v1" },
+    { name: "gal-dots-v2" },
   ),
 );

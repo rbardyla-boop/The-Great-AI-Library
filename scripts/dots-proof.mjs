@@ -41,9 +41,14 @@ if ((await promote.count()) > 0) {
 const afterPromote = await page.locator("body").innerText();
 await page.screenshot({ path: "/workspace/screenshots/dots-promote.png", fullPage: true });
 
-const supportBtn = page.getByRole("button", { name: "File support" });
+const supportBtn = page.getByRole("button", { name: "File opinion" });
 if ((await supportBtn.count()) > 0) {
   await supportBtn.first().click();
+  await page.waitForTimeout(300);
+}
+const evidenceBtn = page.getByRole("button", { name: "File evidence" });
+if ((await evidenceBtn.count()) > 0) {
+  await evidenceBtn.first().click();
   await page.waitForTimeout(300);
 }
 
@@ -69,7 +74,24 @@ await page.screenshot({ path: "/workspace/screenshots/dots-challenge.png", fullP
 
 if (envelope && envelope.includes("gal-dots/1")) {
   await page.locator("textarea").first().fill(envelope);
-  await page.getByRole("button", { name: "Import as hypothesis" }).click();
+  await page.getByRole("button", { name: "Import object" }).click();
+  await page.waitForTimeout(500);
+}
+
+let reviewEnvelope = "";
+const exportReview = page.getByRole("button", { name: "Export review" });
+if ((await exportReview.count()) > 0) {
+  await exportReview.first().click();
+  await page.waitForTimeout(400);
+  try {
+    reviewEnvelope = await page.evaluate(() => navigator.clipboard.readText());
+  } catch {
+    reviewEnvelope = "";
+  }
+}
+if (reviewEnvelope && reviewEnvelope.includes("gal-dots/2")) {
+  await page.locator("textarea").first().fill(reviewEnvelope);
+  await page.getByRole("button", { name: "Import object" }).click();
   await page.waitForTimeout(500);
 }
 
@@ -87,15 +109,18 @@ const checks = {
   hypothesis: /HYPOTHESIS/i.test(afterPromote) || /HYPOTHESIS/i.test(ledger),
   connect: /CONNECT/.test(ledger),
   galUri: /gal:\/\/connection\/sha256:[0-9a-f]{16,}/i.test(afterPromote) || /gal:\/\/connection\/sha256:/i.test(ledger),
-  scoreNotEvidence: /score is not evidence/i.test(afterPromote),
+  scoreNotEvidence: /score is not evidence/i.test(afterPromote) || /opinion is not evidence/i.test(afterPromote),
   far: /FAR/.test(ledger) || /FAR/.test(ask),
   noTruth: !/\btruth\s*=\s*true/i.test(ledger),
   discovery: /Discovery receipts/i.test(ledger) || /CONNECT/.test(ledger),
   artifactSealed: /artifact\s+HYPOTHESIS/i.test(afterChallenge),
-  supportFiled: /SUPPORT/.test(ledger) || /SUPPORT filed/i.test(afterChallenge),
+  supportFiled: /SUPPORT/.test(ledger) || /OPINION/i.test(afterChallenge),
   challengeCites: /CHALLENGE/.test(ledger) && /gal:\/\/connection\/sha256:/i.test(ledger),
-  replicate: !envelope || /REPLICATE/.test(ledger),
+  replicate: !envelope || /REPLICATE/.test(ledger) || /IMPORT_REVIEW/.test(ledger),
   envelope: !envelope || /"protocol":"gal-dots\/1"/.test(envelope.replace(/\s/g, "")),
+  reviewUri: /gal:\/\/review\/sha256:/i.test(afterChallenge) || /gal:\/\/review\/sha256:/i.test(ledger),
+  opinionZero: /contribution 0/i.test(afterChallenge) || /OPINION/i.test(ledger),
+  policy: /Conservative policy/i.test(afterPromote) || /conservative/i.test(ledger),
 };
 console.log(
   JSON.stringify(
