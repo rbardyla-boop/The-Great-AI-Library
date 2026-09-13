@@ -2,8 +2,9 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConnectionCard } from "@/components/library/connection-card";
-import { selectDesk, selectRecords, useLibrary } from "@/lib/library/store";
+import { kernel, selectDesk, selectRecords, useLibrary } from "@/lib/library/store";
 import { useDots } from "@/lib/dots/store";
+import { connectionsFromLedger } from "@/lib/dots/registry";
 import type { DeskItem } from "@/lib/library/types";
 
 import { pageHead } from "@/lib/seo";
@@ -29,9 +30,13 @@ function Desk() {
   const hypotheses = useDots((s) => s.lastReport?.connections ?? []);
   const promote = useDots((s) => s.promote);
   const keepOpen = useDots((s) => s.keepOpen);
+  const support = useDots((s) => s.support);
   const notice = useDots((s) => s.notice);
-  const openHyps = hypotheses
-    .filter((c) => c.status === "HYPOTHESIS" || c.status === "CONTESTED")
+  void overlay.tick;
+  const fromLedger = connectionsFromLedger(kernel);
+  const listed = fromLedger.length ? fromLedger : hypotheses;
+  const openHyps = listed
+    .filter((c) => (c.localStatus ?? c.status) !== "FALSIFIED")
     .slice()
     .sort((a, b) => (a.search === "FAR" ? -1 : 1));
 
@@ -59,17 +64,25 @@ function Desk() {
         <section className="space-y-4">
           <h2 className="font-display text-2xl">Hypotheses awaiting a human</h2>
           <p className="max-w-xl text-sm text-muted">
-            Connect-the-Dots does not judge itself. Promote tries to make a fact and should fail
-            for analogies and gaps. Keep open leaves the original CONNECT untouched.
+            Connect-the-Dots does not judge itself. A high score is not evidence. SUPPORTED
+            cites local review or support receipts. Analogies and gaps stay hypotheses.
+            Keep open leaves the original CONNECT untouched.
           </p>
           {notice ? <p className="text-sm text-warn">{notice}</p> : null}
           <ul className="space-y-4">
             {openHyps.map((c) => (
-              <li key={c.id}>
+              <li key={c.hash || c.id}>
                 <ConnectionCard
                   connection={c}
                   onPromote={() => void promote(c.id)}
                   onKeepOpen={() => void keepOpen(c.id)}
+                  onSupport={() =>
+                    void support(
+                      c.id,
+                      "Desk filed local support. Ranking is not evidence.",
+                      "Archivist",
+                    )
+                  }
                 />
               </li>
             ))}

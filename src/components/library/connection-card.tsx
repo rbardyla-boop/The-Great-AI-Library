@@ -2,8 +2,11 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { HashStamp } from "@/components/library/hash-stamp";
-import { exportCard } from "@/lib/dots/exhibit";
+import { exportEnvelope } from "@/lib/dots/exhibit";
+import { connectionUri } from "@/lib/dots/object";
+import { lineageFor } from "@/lib/dots/registry";
 import type { CandidateConnection, ConnectionReview } from "@/lib/dots/types";
+import { kernel } from "@/lib/library/store";
 import { cn } from "@/lib/cn";
 
 const STATUS_TONE: Record<CandidateConnection["status"], "warn" | "ok" | "danger" | "info"> = {
@@ -37,6 +40,8 @@ export function ConnectionCard({
   onChallenge,
   onPromote,
   onKeepOpen,
+  onSupport,
+  onFalsify,
 }: {
   connection: CandidateConnection;
   reviews?: ConnectionReview[];
@@ -44,9 +49,19 @@ export function ConnectionCard({
   onChallenge?: () => void;
   onPromote?: () => void;
   onKeepOpen?: () => void;
+  onSupport?: () => void;
+  onFalsify?: () => void;
 }) {
   const [copied, setCopied] = useState(false);
   const scores = connection.scores;
+  const sealed = connection.status;
+  const local = connection.localStatus ?? connection.status;
+  const uri = connectionUri(connection.hash);
+  const cited = lineageFor(kernel, connection.hash).filter((e) =>
+    ["CHALLENGE", "SUPPORT", "FALSIFY", "REPLICATE", "REVIEW", "KEEP_OPEN", "PROMOTE"].includes(
+      e.command,
+    ),
+  );
 
   return (
     <article className="rounded-lg bg-surface p-5 shadow-[0_0_0_1px_rgba(255,255,255,0.08)]">
@@ -54,14 +69,16 @@ export function ConnectionCard({
         <p className="font-mono text-[11px] text-faint">{connection.id}</p>
         <Badge>{connection.type.replace("_", " ")}</Badge>
         <Badge tone={connection.search === "FAR" ? "accent" : "muted"}>{connection.search}</Badge>
-        <Badge tone={STATUS_TONE[connection.status]}>{connection.status}</Badge>
+        <Badge tone={STATUS_TONE[sealed]}>artifact {sealed}</Badge>
+        {local !== sealed ? <Badge tone={STATUS_TONE[local]}>this library {local}</Badge> : null}
       </div>
       <p className="mt-3 font-display text-2xl leading-tight">{connection.proposedRelation}</p>
       <p className="mt-2 font-mono text-[11px] uppercase tracking-wider text-warn">
-        {connection.status === "SUPPORTED"
-          ? "Supported hypothesis — not library fact"
+        {local === "SUPPORTED"
+          ? "This library: supported working hypothesis — shared artifact is not a fact"
           : "Hypothesis — not library fact"}
       </p>
+      <p className="mt-2 break-all font-mono text-[11px] text-faint">{uri}</p>
       <dl className="mt-4 space-y-3 text-sm">
         <div>
           <dt className="font-mono text-[11px] uppercase tracking-wider text-faint">Dots</dt>
@@ -87,6 +104,14 @@ export function ConnectionCard({
         <Score label="Independence" value={scores.independence} />
         <Score label="Falsifiability" value={scores.falsifiability} />
       </div>
+      <p className="mt-2 font-mono text-[11px] text-faint">
+        Scores rank. They are not evidence. SUPPORTED cites receipts.
+      </p>
+      {cited.length > 0 ? (
+        <p className="mt-2 font-mono text-[11px] text-muted">
+          {cited.length} lineage object{cited.length === 1 ? "" : "s"} cite this hash. Nobody edited it.
+        </p>
+      ) : null}
       <p className="mt-4 text-sm text-muted">
         <span className="font-mono text-[11px] uppercase tracking-wider text-faint">Would strengthen · </span>
         {connection.missingEvidence[0] ?? "More independent sources."}
@@ -116,6 +141,16 @@ export function ConnectionCard({
             Skeptic challenge
           </Button>
         ) : null}
+        {onSupport ? (
+          <Button size="sm" variant="ghost" onClick={onSupport}>
+            File support
+          </Button>
+        ) : null}
+        {onFalsify ? (
+          <Button size="sm" variant="ghost" onClick={onFalsify}>
+            File falsify
+          </Button>
+        ) : null}
         {onKeepOpen ? (
           <Button size="sm" variant="ghost" onClick={onKeepOpen}>
             Keep open
@@ -130,12 +165,13 @@ export function ConnectionCard({
           size="sm"
           variant="ghost"
           onClick={async () => {
-            await navigator.clipboard.writeText(exportCard(connection));
+            const text = await exportEnvelope(connection);
+            await navigator.clipboard.writeText(text);
             setCopied(true);
             setTimeout(() => setCopied(false), 1500);
           }}
         >
-          {copied ? "Card copied" : "Export card"}
+          {copied ? "Envelope copied" : "Export envelope"}
         </Button>
       </div>
       {reviews && reviews.length > 0 ? (

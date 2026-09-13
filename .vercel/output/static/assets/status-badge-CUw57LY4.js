@@ -1,1 +1,0 @@
-import{t as e}from"./jsx-runtime-B-hcVAMW.js";import{t}from"./badge-Dtfvfhh-.js";var n=e(),r={current:`ok`,superseded:`info`,disputed:`warn`,retracted:`danger`,stale:`warn`,unsupported:`danger`,original:`ok`,derivative:`info`};function i({status:e}){return(0,n.jsx)(t,{tone:r[e]??`muted`,children:e.replace(`-`,` `)})}export{i as t};

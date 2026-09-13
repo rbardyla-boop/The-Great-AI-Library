@@ -5,6 +5,7 @@ import { evidenceRoot } from "@/lib/values/registry";
 import { profileByRole } from "@/lib/values/profiles";
 import { discoverConnections, mercuryView } from "./discover";
 import { parseCard } from "./exhibit";
+import { connectionUri } from "./object";
 import {
   connectionsFromLedger,
   fileChallenge,
@@ -12,7 +13,8 @@ import {
   fileFalsify,
   fileKeepOpen,
   filePromote,
-  fileConnect,
+  fileReplicate,
+  fileReviewReceipt,
   fileSupport,
 } from "./registry";
 import { reviewConnection } from "./review";
@@ -76,7 +78,13 @@ export const useDots = create<DotsState>()(
         if (!connection) return null;
         const report = await reviewConnection(connection);
         report.originalReceipt = connection.ledgerReceipt;
+        await fileReviewReceipt(
+          kernel,
+          connection,
+          `Seven-seat review. Majority ${report.majority}. authorized:false. Costly=${report.costly}.`,
+        );
         set({ reviews: { ...get().reviews, [id]: report } });
+        refreshLibrary();
         return report;
       },
       challenge: async (id, reason, role) => {
@@ -88,9 +96,10 @@ export const useDots = create<DotsState>()(
             lastReport: {
               ...get().lastReport!,
               connections: get().lastReport!.connections.map((c) =>
-                c.id === id ? { ...c, status: "CONTESTED" } : c,
+                c.id === id ? { ...c, localStatus: "CONTESTED" as const } : c,
               ),
             },
+            notice: `CHALLENGE filed against ${connectionUri(connection.hash)}. Artifact unchanged.`,
           });
         }
         refreshLibrary();
@@ -99,6 +108,9 @@ export const useDots = create<DotsState>()(
         const connection = byId(id);
         if (!connection) return;
         await fileSupport(kernel, connection, reason, role);
+        set({
+          notice: `SUPPORT filed against ${connectionUri(connection.hash)}. Artifact unchanged. Not consensus.`,
+        });
         refreshLibrary();
       },
       falsify: async (id, reason) => {
@@ -110,9 +122,10 @@ export const useDots = create<DotsState>()(
             lastReport: {
               ...get().lastReport!,
               connections: get().lastReport!.connections.map((c) =>
-                c.id === id ? { ...c, status: "FALSIFIED" } : c,
+                c.id === id ? { ...c, localStatus: "FALSIFIED" as const } : c,
               ),
             },
+            notice: `FALSIFY filed against ${connectionUri(connection.hash)}. Artifact unchanged.`,
           });
         }
         refreshLibrary();
@@ -133,10 +146,10 @@ export const useDots = create<DotsState>()(
             lastReport: {
               ...get().lastReport!,
               connections: get().lastReport!.connections.map((c) =>
-                c.id === id ? { ...c, status: "SUPPORTED" } : c,
+                c.id === id ? { ...c, localStatus: "SUPPORTED" as const } : c,
               ),
             },
-            notice: "Marked SUPPORTED working hypothesis. Still not a fact.",
+            notice: "This library: SUPPORTED working hypothesis. Shared artifact stays HYPOTHESIS. Not a fact.",
           });
         } else {
           set({ notice: ev.summary });
@@ -147,7 +160,7 @@ export const useDots = create<DotsState>()(
       importCard: async (text) => {
         const parsed = await parseCard(text);
         if (!parsed.ok) return parsed;
-        const ev = await fileConnect(kernel, parsed.connection, true);
+        const ev = await fileReplicate(kernel, parsed.connection);
         const report = get().lastReport;
         set({
           lastReport: report
@@ -168,6 +181,6 @@ export const useDots = create<DotsState>()(
       },
       hydrate: () => listed(),
     }),
-    { name: "gal-dots-v0" },
+    { name: "gal-dots-v1" },
   ),
 );

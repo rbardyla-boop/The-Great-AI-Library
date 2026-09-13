@@ -60,8 +60,9 @@ function LedgerPage() {
         <section className="rounded-lg bg-surface p-5 shadow-[0_0_0_1px_rgba(255,255,255,0.08)]">
           <p className="font-display text-xl">Discovery receipts</p>
           <p className="mt-1 max-w-xl text-sm text-muted">
-            CONNECT files a hypothesis. CHALLENGE, SUPPORT, FALSIFY, and PROMOTE cite that
-            receipt. Replay is not rewrite. There is no truth field.
+            CONNECT files a hypothesis. CHALLENGE, SUPPORT, FALSIFY, REPLICATE, and PROMOTE
+            cite the gal:// URI. Nobody edits the artifact. Ten thousand SUPPORT objects are
+            not consensus. There is no truth field.
           </p>
           <ol className="mt-4 space-y-3">
             {dotsEvents.slice(0, 24).map((ev) => {
@@ -257,11 +258,11 @@ function PayloadLine({ command, payload }: { command: string; payload: Record<st
       </div>
     );
   }
-  if (command === "CONNECT" || command === "IMPORT_HYPOTHESIS") {
+  if (command === "CONNECT" || command === "IMPORT_HYPOTHESIS" || command === "REPLICATE") {
     return (
-      <p className="mt-1 font-mono text-[11px] text-faint">
-        {str(payload.connectionId)} · {str(payload.type)} · {str(payload.search)} · status{" "}
-        {str(payload.status)} · {str(payload.model)}
+      <p className="mt-1 break-all font-mono text-[11px] text-faint">
+        {str(payload.uri)} · {str(payload.connectionId)} · {str(payload.type) || "REPLICATE"} ·
+        artifact {str(payload.artifactStatus) || str(payload.status) || "HYPOTHESIS"}
       </p>
     );
   }
@@ -270,12 +271,15 @@ function PayloadLine({ command, payload }: { command: string; payload: Record<st
     command === "SUPPORT" ||
     command === "FALSIFY" ||
     command === "PROMOTE" ||
-    command === "KEEP_OPEN"
+    command === "KEEP_OPEN" ||
+    command === "REVIEW"
   ) {
     return (
-      <p className="mt-1 font-mono text-[11px] text-faint">
-        {str(payload.connectionId)} · {str(payload.fromStatus)} → {str(payload.toStatus) || str(payload.status)}{" "}
-        · original <HashStamp hash={str(payload.originalReceipt) || str(payload.originalHash)} />
+      <p className="mt-1 break-all font-mono text-[11px] text-faint">
+        {str(payload.uri) || str(payload.addresses)} · origin {str(payload.origin) || "local"} ·
+        local {str(payload.status) || str(payload.fromStatus) || "—"} · artifact{" "}
+        {str(payload.artifactStatus) || "HYPOTHESIS"} · original{" "}
+        <HashStamp hash={str(payload.originalHash) || str(payload.originalReceipt)} />
       </p>
     );
   }

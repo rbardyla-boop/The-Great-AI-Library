@@ -73,5 +73,10 @@ export const CONSTITUTION = {
       title: "Connect-the-Dots may create hypotheses. It may not create facts.",
       body: "A surprising connection is valuable because it can be tested, not because it sounds clever. Analogies, gaps, clusters, and far search are derivative objects. They never acquire a truth field. Promotion of unsupported information is a membrane denial, not a score.",
     },
+    {
+      id: "XV",
+      title: "Network the evidence, not the agents",
+      body: "Portable hypotheses travel as HYPOTHESIS objects with trusty URIs. Challenge, support, falsify, and replicate cite the artifact; they do not edit it. Ten thousand SUPPORT objects are not consensus. Two Libraries may disagree about the same hash. Strength is a ranking signal. SUPPORTED cites receipts. Nobody owns global truth.",
+    },
   ],
 } as const;

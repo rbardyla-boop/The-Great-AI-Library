@@ -124,7 +124,9 @@ function ValuesPage() {
           <p className="mt-3 text-sm leading-relaxed text-muted">{connector.emphasis}</p>
           <p className="mt-2 text-sm text-muted">
             Not a MOTIVE-0 seat. It proposes candidate relationships. Skeptic, Archivist, and
-            Explorer attack them. The Desk decides. It never writes a truth field.
+            Explorer attack them. The Desk decides. Portable hypotheses travel as
+            gal://connection/sha256:{"{hash}"}. Ten thousand SUPPORT objects are not consensus.
+            It never writes a truth field.
           </p>
           <dl className="mt-4 grid grid-cols-2 gap-2 font-mono text-[11px] text-muted">
             {Object.entries(connector.preferences).map(([k, w]) => (

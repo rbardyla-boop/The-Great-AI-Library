@@ -93,26 +93,54 @@ export async function reviewConnection(
   };
 }
 
-/** Working-hypothesis mark. Becoming a fact is always membrane-denied. */
+/** Score is a ranking signal. It is never sufficient evidence for SUPPORTED. */
+export interface PromoteContext {
+  citedReceipts: string[];
+  lineage: Array<{
+    kind: string;
+    origin: "local" | "external";
+    originalHash: string;
+    eventHash?: string;
+  }>;
+}
+
 export function mayPromote(
   connection: CandidateConnection,
+  ctx: PromoteContext = { citedReceipts: [], lineage: [] },
 ): { allow: false; reason: string } | { allow: true; reason: string } {
   const asFact = authorizeEffect({
     kind: "PROMOTE_UNSUPPORTED",
     summary: `Promote ${connection.id} to a library fact`,
   });
-  if (connection.status === "FALSIFIED" || connection.status === "CONTESTED") {
-    return { allow: false, reason: `${connection.status} hypotheses cannot be promoted.` };
+  const local = connection.localStatus ?? connection.status;
+  if (local === "FALSIFIED" || local === "CONTESTED") {
+    return { allow: false, reason: `${local} hypotheses cannot be promoted.` };
   }
-  if (connection.type !== "DIRECT" || connection.scores.strength < 0.7) {
+  const localCited = ctx.lineage.filter(
+    (l) =>
+      l.originalHash === connection.hash &&
+      l.origin === "local" &&
+      (l.kind === "SUPPORT" || l.kind === "REVIEW"),
+  );
+  const citedOk =
+    ctx.citedReceipts.length > 0 &&
+    localCited.some((l) => !l.eventHash || ctx.citedReceipts.includes(l.eventHash));
+  if (!citedOk) {
     return {
       allow: false,
-      reason: `${asFact.reason} ${connection.type} at strength ${connection.scores.strength} stays a hypothesis. A surprising connection is valuable because it can be tested, not because it sounds clever.`,
+      reason:
+        "A score is not evidence. SUPPORTED requires cited local review or support receipts. External SUPPORT does not promote. Ten thousand agreements are not consensus.",
+    };
+  }
+  if (connection.type !== "DIRECT" || connection.evidenceRefs.length === 0) {
+    return {
+      allow: false,
+      reason: `${asFact.reason} ${connection.type} stays a hypothesis. A surprising connection is valuable because it can be tested, not because it sounds clever.`,
     };
   }
   return {
     allow: true,
     reason:
-      "Desk may mark this DIRECT as a SUPPORTED working hypothesis. Membrane still denies a truth field. It is not an original.",
+      "Desk may mark this DIRECT as a SUPPORTED working hypothesis citing receipts, not the strength score. Membrane still denies a truth field. The shared artifact stays HYPOTHESIS.",
   };
 }
