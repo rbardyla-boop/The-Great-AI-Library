@@ -1,7 +1,12 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { CONSTITUTION } from "@/lib/library/constitution";
+import { pageHead } from "@/lib/seo";
 
-export const Route = createFileRoute("/constitution")({ component: ConstitutionPage });
+export const Route = createFileRoute("/constitution")({
+  head: () =>
+    pageHead("Constitution", "Thirteen articles. Laws before chat. VALUES recommend. The membrane authorizes."),
+  component: ConstitutionPage,
+});
 
 function ConstitutionPage() {
   return (
@@ -13,7 +18,9 @@ function ConstitutionPage() {
         <h1 className="mt-2 font-display text-4xl tracking-[-0.03em] md:text-5xl">
           Laws before chat.
         </h1>
-        <p className="mt-3 text-sm text-muted">Enacted {CONSTITUTION.enacted}. Frozen before UI.</p>
+        <p className="mt-3 text-sm text-muted">
+          Enacted {CONSTITUTION.enacted}. Articles XI–XIII amended {CONSTITUTION.amended}.
+        </p>
       </header>
       <ol className="space-y-8">
         {CONSTITUTION.articles.map((a) => (
@@ -24,6 +31,15 @@ function ConstitutionPage() {
           </li>
         ))}
       </ol>
+      <p className="border-t border-border pt-6 text-sm text-muted">
+        <Link to="/privacy" className="text-info">
+          Privacy
+        </Link>
+        {" · "}
+        <Link to="/terms" className="text-info">
+          Terms
+        </Link>
+      </p>
     </div>
   );
 }

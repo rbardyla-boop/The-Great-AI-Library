@@ -12,7 +12,13 @@ import {
   useLibrary,
 } from "@/lib/library/store";
 
-export const Route = createFileRoute("/")({ component: Stacks });
+import { pageHead } from "@/lib/seo";
+
+export const Route = createFileRoute("/")({
+  head: () =>
+    pageHead("The Stacks", "Preserved sources. Originals are immutable. Everything else is a derivative with a receipt."),
+  component: Stacks,
+});
 
 function Stacks() {
   const overlay = useLibrary();

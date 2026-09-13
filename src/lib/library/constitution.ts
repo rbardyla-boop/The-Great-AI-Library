@@ -1,6 +1,7 @@
 export const CONSTITUTION = {
   title: "CONSTITUTION.md",
   enacted: "2026-04-11",
+  amended: "2026-09-13",
   articles: [
     {
       id: "I",
@@ -51,6 +52,21 @@ export const CONSTITUTION = {
       id: "X",
       title: "The Library must remember without lying",
       body: "Throw a digital life into it for ten years and trust it more at year ten than at day one. Maintenance is the product. Chat is not.",
+    },
+    {
+      id: "XI",
+      title: "VALUES may recommend; they never authorize",
+      body: "V.A.L.U.E.S. is a versioned, inspectable normative layer. It may recommend, abstain, justify, disagree, and propose amendments. Capability does not silently become purpose. Only the Hive membrane may authorize effects.",
+    },
+    {
+      id: "XII",
+      title: "An agent may change its mind",
+      body: "It may not silently change the constitution by which its actions are judged. VALUES amendments go through epoch. Existing receipts keep the hash they were judged under. Replay is not rewrite.",
+    },
+    {
+      id: "XIII",
+      title: "Intelligence cannot silently become authority",
+      body: "A coalition may pool intelligence. It must not pool authority. Peer GO grants nothing. A child identity inherits zero trust. Secret taint cannot ride a public network because a collaborator asked nicely.",
     },
   ],
 } as const;

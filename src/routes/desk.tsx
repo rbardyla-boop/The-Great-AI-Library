@@ -4,7 +4,12 @@ import { Button } from "@/components/ui/button";
 import { selectDesk, selectRecords, useLibrary } from "@/lib/library/store";
 import type { DeskItem } from "@/lib/library/types";
 
-export const Route = createFileRoute("/desk")({ component: Desk });
+import { pageHead } from "@/lib/seo";
+
+export const Route = createFileRoute("/desk")({
+  head: () => pageHead("Archivist Desk", "Overnight report. Accept or reject only what needs a human."),
+  component: Desk,
+});
 
 const TONE: Record<DeskItem["severity"], "info" | "warn" | "danger"> = {
   info: "info",

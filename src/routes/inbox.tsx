@@ -5,7 +5,13 @@ import { PIPELINE_STAGES } from "@/lib/library/corpus";
 import { useLibrary } from "@/lib/library/store";
 import { cn } from "@/lib/cn";
 
-export const Route = createFileRoute("/inbox")({ component: InboxPage });
+import { pageHead } from "@/lib/seo";
+
+export const Route = createFileRoute("/inbox")({
+  head: () =>
+    pageHead("Inbox", "Accession a source. Each light is a ledger receipt. SHA-256 of the original bytes is SOURCE_ID."),
+  component: InboxPage,
+});
 
 function InboxPage() {
   const inputRef = useRef<HTMLInputElement>(null);

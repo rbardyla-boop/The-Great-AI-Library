@@ -15,8 +15,16 @@ import {
 import { askArchivist } from "@/lib/ask";
 import { auditAnswer } from "@/lib/kernel/auditor";
 import type { Brief, RetrievalChannel } from "@/lib/library/types";
+import { pageHead } from "@/lib/seo";
 
-export const Route = createFileRoute("/ask")({ component: Ask });
+export const Route = createFileRoute("/ask")({
+  head: () =>
+    pageHead(
+      "Ask",
+      "Investigate, do not chat. Strict answers cite retrieved evidence. The Answer Auditor refuses uncited library claims.",
+    ),
+  component: Ask,
+});
 
 const CHANNELS: { id: RetrievalChannel; label: string; hint: string }[] = [
   { id: "lexical", label: "Lexical", hint: "What literally contains this?" },

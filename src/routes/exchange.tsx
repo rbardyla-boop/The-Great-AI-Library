@@ -5,7 +5,13 @@ import { Button } from "@/components/ui/button";
 import { seed, useLibrary } from "@/lib/library/store";
 import type { Librarian } from "@/lib/library/types";
 
-export const Route = createFileRoute("/exchange")({ component: Exchange });
+import { pageHead } from "@/lib/seo";
+
+export const Route = createFileRoute("/exchange")({
+  head: () =>
+    pageHead("Librarian Exchange", "Agents with a permission card. Unsigned shell packages stop. Permission expansion is detected."),
+  component: Exchange,
+});
 
 function Exchange() {
   const installed = useLibrary((s) => s.installed);

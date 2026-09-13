@@ -14,7 +14,7 @@ var install_page_default = "<!DOCTYPE html>\n<html lang=\"en\" class=\"device-de
 var grokOgIdentity = { "site": {
 	"title": "The Great AI Library",
 	"card": "custom",
-	"description": "A local-first archival operating system — evidence, ledgers, and librarians.",
+	"description": "Evidence, VALUES, and a membrane: AI cannot silently become evidence, purpose, or authority.",
 	"image": "/og.jpg"
 } };
 //#endregion

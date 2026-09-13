@@ -10,12 +10,17 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SplatRouteImport } from './routes/$'
 import { Route as AskRouteImport } from './routes/ask'
+import { Route as ChamberRouteImport } from './routes/chamber'
 import { Route as ConstitutionRouteImport } from './routes/constitution'
 import { Route as DeskRouteImport } from './routes/desk'
 import { Route as ExchangeRouteImport } from './routes/exchange'
 import { Route as InboxRouteImport } from './routes/inbox'
 import { Route as LedgerRouteImport } from './routes/ledger'
+import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as TermsRouteImport } from './routes/terms'
+import { Route as ValuesRouteImport } from './routes/values'
 import { Route as RecordIdRouteImport } from './routes/record.$id'
 
 const IndexRoute = IndexRouteImport.update({
@@ -23,9 +28,19 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SplatRoute = SplatRouteImport.update({
+  id: '/$',
+  path: '/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AskRoute = AskRouteImport.update({
   id: '/ask',
   path: '/ask',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChamberRoute = ChamberRouteImport.update({
+  id: '/chamber',
+  path: '/chamber',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ConstitutionRoute = ConstitutionRouteImport.update({
@@ -53,6 +68,21 @@ const LedgerRoute = LedgerRouteImport.update({
   path: '/ledger',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ValuesRoute = ValuesRouteImport.update({
+  id: '/values',
+  path: '/values',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RecordIdRoute = RecordIdRouteImport.update({
   id: '/record/$id',
   path: '/record/$id',
@@ -61,76 +91,111 @@ const RecordIdRoute = RecordIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/$': typeof SplatRoute
   '/ask': typeof AskRoute
+  '/chamber': typeof ChamberRoute
   '/constitution': typeof ConstitutionRoute
   '/desk': typeof DeskRoute
   '/exchange': typeof ExchangeRoute
   '/inbox': typeof InboxRoute
   '/ledger': typeof LedgerRoute
+  '/privacy': typeof PrivacyRoute
+  '/terms': typeof TermsRoute
+  '/values': typeof ValuesRoute
   '/record/$id': typeof RecordIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/$': typeof SplatRoute
   '/ask': typeof AskRoute
+  '/chamber': typeof ChamberRoute
   '/constitution': typeof ConstitutionRoute
   '/desk': typeof DeskRoute
   '/exchange': typeof ExchangeRoute
   '/inbox': typeof InboxRoute
   '/ledger': typeof LedgerRoute
+  '/privacy': typeof PrivacyRoute
+  '/terms': typeof TermsRoute
+  '/values': typeof ValuesRoute
   '/record/$id': typeof RecordIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/$': typeof SplatRoute
   '/ask': typeof AskRoute
+  '/chamber': typeof ChamberRoute
   '/constitution': typeof ConstitutionRoute
   '/desk': typeof DeskRoute
   '/exchange': typeof ExchangeRoute
   '/inbox': typeof InboxRoute
   '/ledger': typeof LedgerRoute
+  '/privacy': typeof PrivacyRoute
+  '/terms': typeof TermsRoute
+  '/values': typeof ValuesRoute
   '/record/$id': typeof RecordIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/$'
     | '/ask'
+    | '/chamber'
     | '/constitution'
     | '/desk'
     | '/exchange'
     | '/inbox'
     | '/ledger'
+    | '/privacy'
+    | '/terms'
+    | '/values'
     | '/record/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/$'
     | '/ask'
+    | '/chamber'
     | '/constitution'
     | '/desk'
     | '/exchange'
     | '/inbox'
     | '/ledger'
+    | '/privacy'
+    | '/terms'
+    | '/values'
     | '/record/$id'
   id:
     | '__root__'
     | '/'
+    | '/$'
     | '/ask'
+    | '/chamber'
     | '/constitution'
     | '/desk'
     | '/exchange'
     | '/inbox'
     | '/ledger'
+    | '/privacy'
+    | '/terms'
+    | '/values'
     | '/record/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  SplatRoute: typeof SplatRoute
   AskRoute: typeof AskRoute
+  ChamberRoute: typeof ChamberRoute
   ConstitutionRoute: typeof ConstitutionRoute
   DeskRoute: typeof DeskRoute
   ExchangeRoute: typeof ExchangeRoute
   InboxRoute: typeof InboxRoute
   LedgerRoute: typeof LedgerRoute
+  PrivacyRoute: typeof PrivacyRoute
+  TermsRoute: typeof TermsRoute
+  ValuesRoute: typeof ValuesRoute
   RecordIdRoute: typeof RecordIdRoute
 }
 
@@ -143,11 +208,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/$': {
+      id: '/$'
+      path: '/$'
+      fullPath: '/$'
+      preLoaderRoute: typeof SplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/ask': {
       id: '/ask'
       path: '/ask'
       fullPath: '/ask'
       preLoaderRoute: typeof AskRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/chamber': {
+      id: '/chamber'
+      path: '/chamber'
+      fullPath: '/chamber'
+      preLoaderRoute: typeof ChamberRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/constitution': {
@@ -185,6 +264,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LedgerRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/values': {
+      id: '/values'
+      path: '/values'
+      fullPath: '/values'
+      preLoaderRoute: typeof ValuesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/record/$id': {
       id: '/record/$id'
       path: '/record/$id'
@@ -197,12 +297,17 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  SplatRoute: SplatRoute,
   AskRoute: AskRoute,
+  ChamberRoute: ChamberRoute,
   ConstitutionRoute: ConstitutionRoute,
   DeskRoute: DeskRoute,
   ExchangeRoute: ExchangeRoute,
   InboxRoute: InboxRoute,
   LedgerRoute: LedgerRoute,
+  PrivacyRoute: PrivacyRoute,
+  TermsRoute: TermsRoute,
+  ValuesRoute: ValuesRoute,
   RecordIdRoute: RecordIdRoute,
 }
 export const routeTree = rootRouteImport

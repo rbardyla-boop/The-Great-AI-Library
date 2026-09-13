@@ -5,7 +5,12 @@ import { Button } from "@/components/ui/button";
 import { selectLedger, useLibrary } from "@/lib/library/store";
 import { formatGauntlet, runGauntlet, type GateResult } from "@/lib/kernel/gauntlet";
 
-export const Route = createFileRoute("/ledger")({ component: LedgerPage });
+import { pageHead } from "@/lib/seo";
+
+export const Route = createFileRoute("/ledger")({
+  head: () => pageHead("The Ledger", "Hash-chained commands and receipts. Run the GAL gauntlet."),
+  component: LedgerPage,
+});
 
 const TONE: Record<string, "muted" | "ok" | "warn" | "danger" | "info" | "accent"> = {
   archivist: "info",

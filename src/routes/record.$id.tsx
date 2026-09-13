@@ -9,7 +9,12 @@ import {
   useLibrary,
 } from "@/lib/library/store";
 
-export const Route = createFileRoute("/record/$id")({ component: RecordPage });
+import { pageHead } from "@/lib/seo";
+
+export const Route = createFileRoute("/record/$id")({
+  head: () => pageHead("Record", "An original or derivative with provenance, hash, and claims."),
+  component: RecordPage,
+});
 
 function RecordPage() {
   const { id } = Route.useParams();
