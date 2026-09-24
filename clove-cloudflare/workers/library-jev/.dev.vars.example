@@ -1,0 +1,2 @@
+# Copy to .dev.vars for `wrangler dev` only. Never commit .dev.vars.
+TYPESAFE_API_KEY=

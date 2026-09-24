@@ -2,44 +2,31 @@
 
 Updated: 2026-09-24.
 
-## Current commit
+## Where the key goes
 
-Workspace git HEAD `ab4aa07`. This session's Cognitive integration is in the working tree and is not a Clove production commit.
+Not on grok.me. Not in this chat. Not in a file.
 
-## Completed
+Codex deploys `clove-cloudflare/` onto the existing clovelearn.io tree, then:
 
-- Reality pass preserved. See `CLOVELEARN_REALITY_REPORT.md`.
-- Cognitive compatibility layer: `src/lib/cognitive/` (`types`, `envelope`, `policy`, `receipts`, `adapter`, `provider`, `eval-case`).
-- Jev attempt terminals: accepted, rejected, 429, 529, timeout, auth, network, invalid, cancelled, no key. Historical gaps stay `NOT_RECORDED`.
-- Library page shows observed source, model judgment, and policy disposition separately. Browser check passed on the no-key path.
-- Attempt receipts append to the local GAL ledger as `JEV_ATTEMPT` without passage text.
-- Clove Insights transmit flag is false. Signal shape is ready and refuses claim text.
-- `npm run build` completed. That bundle is not a Cloudflare upload.
+```
+cd workers/library-jev
+npx wrangler secret put TYPESAFE_API_KEY
+```
 
-## Tests run
+Instructions: [clove-cloudflare/CODEX.md](../clove-cloudflare/CODEX.md).
 
-Typecheck: pass.
+## What is ready
 
-Unit files for kernel, motive, values, dots, app-data, auth, readiness, jev, host, cognitive, shell: 125 passed, 0 failed, 0 skipped.
+- `clove-cloudflare/pages/library/index.html` — additive page. Does not replace the front door.
+- `clove-cloudflare/workers/library-jev/` — Worker for `clovelearn.io/__clove/jev`. Secret name only.
+- Insights allowlist patch. Not applied to production.
 
-`node scripts/jev-live-smoke.mjs` exited 2. Not a live pass.
+## What is not done
 
-Cloudflare token: absent. Production: not deployed.
+- Real Jev has not been called. No key is in this environment.
+- clovelearn.io/library was 404. Nothing was uploaded.
+- The eight Hello World share-card tests were not edited.
 
-Pre-existing: `scripts/grok-pwa-plugin.test.mjs` still expects Hello World. Not edited.
+## Next command
 
-## Live Jev status
-
-Not called. No key in this environment. Model version: unknown, because no response was received. Docs examples still say `jev-1.13.0` for pinned output and `jev-latest` as the alias this code sends.
-
-## Deployment status
-
-clovelearn.io/library was 404 on the reality pass and was not uploaded. This Reading Room is not that host.
-
-## Exact next command
-
-When a key exists, and only then:
-
-`TYPESAFE_API_KEY=… node scripts/jev-live-smoke.mjs`
-
-Do not upload this app over the Cloudflare Pages tree.
+Codex, on the existing Clove tree, follows `clove-cloudflare/CODEX.md`. Do not upload this Reading Room over Pages.

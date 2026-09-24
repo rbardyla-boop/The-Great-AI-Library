@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Library — CloveLearn</title>
+  <meta name="description" content="A preserved source, a Jev judgment, and a policy disposition. Nothing here is promoted.">
+  <meta name="theme-color" content="#07111f">
+  <link rel="canonical" href="https://clovelearn.io/library/">
+  <link rel="stylesheet" href="/hub.css">
+  <style>
+    .stack { display: grid; gap: 1rem; margin: 1.5rem 0 2rem; }
+    .layer { padding: 1rem 1.1rem; border: 1px solid rgba(255,255,255,.12); border-radius: 12px; }
+    .layer p, .layer li { max-width: 68ch; }
+    .kicker { font-size: .72rem; letter-spacing: .16em; text-transform: uppercase; opacity: .7; }
+    textarea, input[type="text"] { width: 100%; max-width: 68ch; box-sizing: border-box; }
+    textarea { min-height: 7rem; }
+    .row { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .75rem; }
+    button { cursor: pointer; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .78rem; word-break: break-all; }
+    .quiet { opacity: .8; }
+  </style>
+</head>
+<body>
+  <header class="site-nav">
+    <a class="wordmark" href="/">CLOVE<span>LEARN</span></a>
+    <nav aria-label="Main navigation">
+      <a href="/wellbeing/">Wellbeing</a>
+      <a href="/games/">Games</a>
+      <a href="/research/">Research</a>
+      <a href="/library/" aria-current="page">Library</a>
+      <a href="/about-clovelearn.html">About</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <p class="eyebrow">Library · source, judgment, and policy stay apart</p>
+      <h1>What does this<br><span>source support?</span></h1>
+      <p class="lede">The passage stays as written. Jev may judge that bounded text. The site then says what that judgment is allowed to mean. It does not edit the source or promote it.</p>
+    </section>
+
+    <section class="stack">
+      <form id="ask">
+        <label class="kicker" for="query">Claim</label>
+        <input id="query" type="text" maxlength="500" value="The note says the pump was replaced.">
+        <div class="row">
+          <button type="button" data-sample="support">Clear support</button>
+          <button type="button" data-sample="contradict">Contradiction</button>
+          <button type="button" data-sample="thin">Thin evidence</button>
+          <button type="button" data-sample="irrelevant">Irrelevant</button>
+          <button type="button" data-sample="conflict">Conflict</button>
+        </div>
+        <label class="kicker" for="source">Observed source</label>
+        <textarea id="source" maxlength="700">Maintenance note: the pump was replaced on Tuesday.</textarea>
+        <div class="row">
+          <button type="submit">Retrieve</button>
+        </div>
+      </form>
+
+      <article class="layer" id="observed">
+        <p class="kicker">Observed source</p>
+        <h2>What was supplied</h2>
+        <p id="sourceText" class="quiet">Nothing sent yet.</p>
+        <p id="sourceHash" class="mono"></p>
+      </article>
+
+      <article class="layer" id="judgment">
+        <p class="kicker">Model judgment</p>
+        <h2>What Jev returned</h2>
+        <p id="judgmentNote" class="quiet">No judgment yet. The source still shows if Jev is absent.</p>
+        <ul id="probs"></ul>
+        <p id="modelLine" class="mono"></p>
+      </article>
+
+      <article class="layer" id="policy">
+        <p class="kicker">Policy disposition</p>
+        <h2>What the site will allow</h2>
+        <p id="disposition" class="quiet">No disposition yet.</p>
+        <p id="license" class="mono"></p>
+      </article>
+
+      <article class="layer">
+        <h2>Was this useful?</h2>
+        <div class="row">
+          <button type="button" id="yes">Yes</button>
+          <button type="button" id="no">No</button>
+        </div>
+        <p id="thanks" class="quiet"></p>
+      </article>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>No account. The source text is sent only to the judgment route, not to the counters.</p>
+    <nav><a href="/">Home</a><a href="/feedback.html">Feedback</a><a href="/privacy-signals.html">Privacy</a></nav>
+  </footer>
+  <script src="/clove-signals.js" defer></script>
+  <script>
+    const samples = {
+      support: "Maintenance note: the pump was replaced on Tuesday.",
+      contradict: "Maintenance note: the pump was not replaced. It is the original unit.",
+      thin: "The hallway light flickers after sunset.",
+      irrelevant: "Recipe: fold the eggs into the sugar.",
+      conflict: "One line says the pump was replaced. The next line says the pump was not replaced."
+    };
+    const query = document.querySelector("#query");
+    const source = document.querySelector("#source");
+    const sourceText = document.querySelector("#sourceText");
+    const sourceHash = document.querySelector("#sourceHash");
+    const judgmentNote = document.querySelector("#judgmentNote");
+    const probs = document.querySelector("#probs");
+    const modelLine = document.querySelector("#modelLine");
+    const disposition = document.querySelector("#disposition");
+    const license = document.querySelector("#license");
+    const thanks = document.querySelector("#thanks");
+
+    document.querySelectorAll("[data-sample]").forEach((button) => {
+      button.addEventListener("click", () => {
+        source.value = samples[button.getAttribute("data-sample")];
+      });
+    });
+
+    function signal(event) {
+      const body = JSON.stringify({
+        event: event,
+        surface: "library",
+        device: "unknown",
+        returnBucket: "none",
+        referrerGroup: "none",
+        build: "current",
+        variant: "none",
+        detail: "none",
+        diagnostic: "none"
+      });
+      fetch("/__clove/signal", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: body,
+        keepalive: true
+      }).catch(() => {});
+    }
+
+    async function hashText(text) {
+      const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+      return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+    }
+
+    signal("library_open");
+
+    document.querySelector("#ask").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const claim = query.value.trim();
+      const text = source.value.trim();
+      if (!claim || !text) return;
+      sourceText.textContent = text;
+      sourceHash.textContent = await hashText(text);
+      probs.replaceChildren();
+      judgmentNote.textContent = "Asking for a judgment…";
+      disposition.textContent = "Waiting.";
+      license.textContent = "";
+      modelLine.textContent = "";
+      signal("library_query_started");
+      try {
+        const res = await fetch("/__clove/jev", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ query: claim, passages: [{ id: "supplied", title: "Supplied source", text: text }] })
+        });
+        const data = await res.json();
+        signal("library_query_completed");
+        if (!data || data.ok === false) {
+          judgmentNote.textContent = "The judgment route did not answer. The source above is unchanged.";
+          disposition.textContent = "SERVICE UNAVAILABLE";
+          signal("jev_service_failure");
+          return;
+        }
+        modelLine.textContent = data.terminal + " · " + (data.model || "none") + (data.requestId ? " · " + data.requestId : "");
+        if (!data.judgments || !data.judgments.length) {
+          judgmentNote.textContent = data.terminal === "NO_KEY"
+            ? "No server key. Judgment was not invented."
+            : "No distribution was returned. Nothing was invented.";
+          signal("jev_service_failure");
+        } else {
+          judgmentNote.textContent = "These numbers are the model's distributions. They are not permission.";
+          for (const row of data.judgments) {
+            const item = document.createElement("li");
+            const bits = Object.entries(row.probabilities).map(([k, v]) => k + " " + Number(v).toFixed(2)).join(" · ");
+            item.textContent = row.id + " — " + bits;
+            probs.appendChild(item);
+          }
+          signal("jev_success");
+        }
+        const decision = data.decision || {};
+        disposition.textContent = String(decision.disposition || "SERVICE_UNAVAILABLE").replaceAll("_", " ");
+        license.textContent = "License " + String(decision.license || "do_not_use_for_action").replaceAll("_", " ")
+          + ". Forbidden " + (decision.forbidden_use || []).join(", ");
+        if (decision.human_review) signal("human_review_required");
+      } catch {
+        judgmentNote.textContent = "The judgment route did not answer. The source above is unchanged.";
+        disposition.textContent = "SERVICE UNAVAILABLE";
+        signal("jev_service_failure");
+      }
+    });
+
+    async function vote(category, eventName) {
+      signal(eventName);
+      await fetch("/__clove/feedback", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          category: category,
+          surface: "library",
+          device: "unknown",
+          note: "",
+          diagnostic: "none",
+          company: ""
+        })
+      }).catch(() => {});
+      thanks.textContent = "Thanks. That is a yes or no only. The source text was not sent with it.";
+    }
+    document.querySelector("#yes").addEventListener("click", () => vote("helpful", "feedback_yes"));
+    document.querySelector("#no").addEventListener("click", () => vote("not_for_me", "feedback_no"));
+  </script>
+</body>
+</html>
