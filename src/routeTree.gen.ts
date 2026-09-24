@@ -17,7 +17,9 @@ import { Route as ConstitutionRouteImport } from './routes/constitution'
 import { Route as DeskRouteImport } from './routes/desk'
 import { Route as ExchangeRouteImport } from './routes/exchange'
 import { Route as InboxRouteImport } from './routes/inbox'
+import { Route as InsightsRouteImport } from './routes/insights'
 import { Route as LedgerRouteImport } from './routes/ledger'
+import { Route as LibraryRouteImport } from './routes/library'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as ValuesRouteImport } from './routes/values'
@@ -63,9 +65,19 @@ const InboxRoute = InboxRouteImport.update({
   path: '/inbox',
   getParentRoute: () => rootRouteImport,
 } as any)
+const InsightsRoute = InsightsRouteImport.update({
+  id: '/insights',
+  path: '/insights',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LedgerRoute = LedgerRouteImport.update({
   id: '/ledger',
   path: '/ledger',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LibraryRoute = LibraryRouteImport.update({
+  id: '/library',
+  path: '/library',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacyRoute = PrivacyRouteImport.update({
@@ -98,7 +110,9 @@ export interface FileRoutesByFullPath {
   '/desk': typeof DeskRoute
   '/exchange': typeof ExchangeRoute
   '/inbox': typeof InboxRoute
+  '/insights': typeof InsightsRoute
   '/ledger': typeof LedgerRoute
+  '/library': typeof LibraryRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/values': typeof ValuesRoute
@@ -113,7 +127,9 @@ export interface FileRoutesByTo {
   '/desk': typeof DeskRoute
   '/exchange': typeof ExchangeRoute
   '/inbox': typeof InboxRoute
+  '/insights': typeof InsightsRoute
   '/ledger': typeof LedgerRoute
+  '/library': typeof LibraryRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/values': typeof ValuesRoute
@@ -129,7 +145,9 @@ export interface FileRoutesById {
   '/desk': typeof DeskRoute
   '/exchange': typeof ExchangeRoute
   '/inbox': typeof InboxRoute
+  '/insights': typeof InsightsRoute
   '/ledger': typeof LedgerRoute
+  '/library': typeof LibraryRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/values': typeof ValuesRoute
@@ -146,7 +164,9 @@ export interface FileRouteTypes {
     | '/desk'
     | '/exchange'
     | '/inbox'
+    | '/insights'
     | '/ledger'
+    | '/library'
     | '/privacy'
     | '/terms'
     | '/values'
@@ -161,7 +181,9 @@ export interface FileRouteTypes {
     | '/desk'
     | '/exchange'
     | '/inbox'
+    | '/insights'
     | '/ledger'
+    | '/library'
     | '/privacy'
     | '/terms'
     | '/values'
@@ -176,7 +198,9 @@ export interface FileRouteTypes {
     | '/desk'
     | '/exchange'
     | '/inbox'
+    | '/insights'
     | '/ledger'
+    | '/library'
     | '/privacy'
     | '/terms'
     | '/values'
@@ -192,7 +216,9 @@ export interface RootRouteChildren {
   DeskRoute: typeof DeskRoute
   ExchangeRoute: typeof ExchangeRoute
   InboxRoute: typeof InboxRoute
+  InsightsRoute: typeof InsightsRoute
   LedgerRoute: typeof LedgerRoute
+  LibraryRoute: typeof LibraryRoute
   PrivacyRoute: typeof PrivacyRoute
   TermsRoute: typeof TermsRoute
   ValuesRoute: typeof ValuesRoute
@@ -257,11 +283,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InboxRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/insights': {
+      id: '/insights'
+      path: '/insights'
+      fullPath: '/insights'
+      preLoaderRoute: typeof InsightsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/ledger': {
       id: '/ledger'
       path: '/ledger'
       fullPath: '/ledger'
       preLoaderRoute: typeof LedgerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/library': {
+      id: '/library'
+      path: '/library'
+      fullPath: '/library'
+      preLoaderRoute: typeof LibraryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacy': {
@@ -304,7 +344,9 @@ const rootRouteChildren: RootRouteChildren = {
   DeskRoute: DeskRoute,
   ExchangeRoute: ExchangeRoute,
   InboxRoute: InboxRoute,
+  InsightsRoute: InsightsRoute,
   LedgerRoute: LedgerRoute,
+  LibraryRoute: LibraryRoute,
   PrivacyRoute: PrivacyRoute,
   TermsRoute: TermsRoute,
   ValuesRoute: ValuesRoute,

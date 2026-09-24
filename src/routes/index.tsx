@@ -42,6 +42,9 @@ function Stacks() {
             receipt. Overnight: {originals.length} sources, {claims.length} claims,{" "}
             {contradictions.length} open conflicts.
           </p>
+          <Link to="/library" className="mt-3 inline-block text-sm text-muted">
+            Open the Library slice
+          </Link>
         </div>
         <Link
           to="/desk"
